@@ -1,3 +1,7 @@
+# How Stable Diffusion Works
+## What is it?
+It is a generative model that learns the probability distribution of a data set (images in this case) and can generate entirely new images by sampling from this distribution.
+
 # Process Overview of Stable Diffusion
 1. Autoencoder:
 - Encoding: The initial image is encoded into a latent space using an autoencoder.
