@@ -2,11 +2,11 @@
 ## What is it?
 It is a generative model that learns the probability distribution of a data set (images in this case) and can generate entirely new images by sampling from this distribution.
 
-Data is modeled as distributions to be able to evaluate probabilities using conditional probability of continuous random variables (CRV). However, there is an importance on the type of distribution we use. See the example below of a normal Gaussian distribution, let's say we toss a coin for each variable (age and height). We end up with an improbabily statistic of a 3 year old with a height of 130 cm. 
+Data is modeled as distributions to be able to evaluate probabilities using conditional probability of continuous random variables (CRV). However, there is an importance on the type of distribution we use. See the example below of a normal Gaussian distribution, let's say we toss a coin for each variable (age and height). We end up with an improbable statistic of a 3 year old with a height of 130 cm. 
 
 ![gaussian_distribution_example](images/gaussian_distribution.png)
 
-To solve this problem, we can use a probability density function (PDF) which is pretty much similar to Gaussian distribution but rather than a symmetric bell-curve shape around the mean, the shape will depend on the total area of 1. This area under the PDF curve represents the probability that the variable falls within that interval. The function is f*X*(*x*) for a random variable *X*. 
+To solve this problem, we can use a probability density function (PDF). The Gaussian distribution is already a specific type of PDF but rather than a forced symmetric bell-curve shape around the mean, the shape will just depend on the total area of 1. This area under the PDF curve represents the probability that the variable falls within that interval. The function is f*X*(*x*) for a random variable *X*. 
 
 In the example above, since we have two variables, we can create a **Joint Probability Distribution** graph that describes the probability distribution of the two CRVs, f*X,Y*(*x,y*) which gives the probability density at the point (*x,y*). This new graph allows us to have more a plausible statistic between age and height because the two variables of age and height now have a probability score associated with it.
 
@@ -15,6 +15,7 @@ In the example above, since we have two variables, we can create a **Joint Proba
 Instead of evaluating each variable independently (tossing a coin for each variable), the joint distribution considers the relationship between the variables. The heatmap shown above indicates that closer to the center is a higher probability and farther is lower, representing the probability density of the two variables. With this joint distribution graph, we can evaluate probability using conditional probability or marginalizing.
 
 ***Why is this important with an image dataset?*** Well this is actually what's happening for an image, we create a very complex distribution where each pixel is a CRV and each of these pixels are joined in one big joint distribution graph. 
+<br>
 
 ### Marginalizing a variable
 
@@ -33,6 +34,7 @@ f<sub>Height</sub>(h) = ∫<sub>-∞</sub><sup>∞</sup> f<sub>Age, Height</sub>
 By marginalizing one of the variables, we can understand the distribution of the other variable independently, while still accounting for their joint relationship.
 
 **Real-World Example**: Imagine you have a table of data with ages and heights of children. If you want to know the overall distribution of ages without considering height, you would look at the marginal distribution of age. This tells you how common each age is, regardless of height. Similarly, the marginal distribution of height tells you how common each height is, regardless of age.
+<br>
 
 ### Evaluating conditional probablity
 
@@ -45,11 +47,85 @@ f<sub>Height|Age</sub>(h|a) = f<sub>Age, Height</sub>(a, h) / f<sub>Age</sub>(a)
 This formula means we take the joint probability of age and height and divide it by the marginal probability of age.
 
 **Real-World Example**: If you want to know the probability of a child being 130 cm tall given that they are 10 years old, you would use the joint distribution of age and height and divide it by the marginal distribution of age. This gives you the conditional probability of height given age.
+<br><br>
+
+
+## Forward and Reverse Process
+
+![forward_reverse_process](images/forward_reverse_process.png)
+
+The system will be modeled as a joint distribution with the inclusion of latent variables. Variable *Z* from the image above.
+
+### Forward Process
+We begin with the initial image, denoted as x<sub>0</sub>. In the forward process of diffusion models, we continuously add noise to this image over a series of time steps from 1 to T where x<sub>T</sub> is pure noise. At each time step t, noise is added to the image, resulting in a progressively noisier image. This can be modeled as a *Markov chain*.
+
+The forward process in the DDPM (Denoising Diffusion Probabilistic Model) is denoted by q and involves adding noise to an image. The formula for transitioning from time step t-1 to t is as follows:
+
+<pre>
+q(x<sub>t</sub> | x<sub>t-1</sub>) = √(α<sub>t</sub>) * x<sub>t-1</sub> + √(1 - α<sub>t</sub>) * ε
+</pre>
+
+- q(x<sub>t</sub> | x<sub>t-1</sub>): "Transitioning from step t-1 to t".
+- x<sub>t</sub>: The image at time step t.
+- x<sub>t-1</sub>: The image at the previous time step (t-1).
+- α<sub>t</sub>: The noise schedule, a value between 0 and 1 that decreases over time, controlling the amount of original image information retained at each step.
+- ε: Gaussian noise sampled from a normal distribution N(0, I), representing the random noise added to the image.
+
+As you can see from above how this this process is ***Markovian*** since the next state depends only on the previous state x<sub>t-1</sub> and some added noise.
+
+***Note: In DDPM, α<sub>t</sub> = 1 - β<sub>t</sub>, where β<sub>t</sub> is the variance schedule that increases over time.***
+
+Additionally, the formula for transitioning from the original image x<sub>0</sub> to x<sub>t</sub> in one step is:
+
+<pre>
+q(x<sub>t</sub> | x<sub>0</sub>) = √(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε
+</pre>
+
+- q(x<sub>t</sub> | x<sub>0</sub>): "Transitioning from original image to any step t".
+- α̅<sub>t</sub> is the cumulative product of the noise schedule up to time step t.
+
+<br>
+
+### Reverse Process
+The problem with the reverse process is that we don't have a clear mathematical formula to be able to remove the noise from the image (reverse the process) at each time step *t*. Therefore, we train a neural network to do it for us. 
+
+In the reverse process of DDPM, we aim to remove the noise from the noisy image x<sub>t</sub> to obtain a less noisy image x<sub>t-1</sub>. This process is modeled by a neural network, denoted as p<sub>θ</sub> (P theta), which learns to predict the distribution of the previous time step's image given the current noisy image. Remember that there is no clear formula so the neural network will learn and predict the noise of μ<sub>θ</sub>(x<sub>t</sub>, t) and Σ<sub>θ</sub>(x<sub>t</sub>, t) for us. The formula is: 
+
+<pre>
+p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>) = N(x<sub>t-1</sub>; μ<sub>θ</sub>(x<sub>t</sub>, t), Σ<sub>θ</sub>(x<sub>t</sub>, t))
+</pre>
+
+- p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>): "Transitioning from noisy image x<sub>t</sub> to less noisy image x<sub>t-1</sub>".
+- N: A normal distribution.
+- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean predicted by the neural network for the distribution of x<sub>t-1</sub> given x<sub>t</sub> and time step t.
+- Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance predicted by the neural network for the distribution of x<sub>t-1</sub> given x<sub>t</sub> and time step t.
+
+The neural network p<sub>θ</sub> is trained to minimize the difference between the predicted and actual previous time step images, effectively learning to denoise the image step by step. This reverse process allows us to start from pure noise x<sub>T</sub> and iteratively remove the noise to generate a coherent image x<sub>0</sub>.
+
+This reverse process is also Markovian, meaning that the next state (x<sub>t-1</sub>) depends only on the current state (x<sub>t</sub>) and not on any of the previous states before x<sub>t</sub>. The Markov property simplifies the modeling of the reverse process, as it ensures that each step can be treated independently given the current state.
+<br>
+
+#### ELBO Loss in Training the Reverse Process
+In training the neural network to learn the reverse process, we use the Evidence Lower Bound (ELBO) loss. The ELBO loss helps in approximating the true distribution of the data by maximizing a lower bound on the data likelihood. This process helps the neural network learn to denoise the images accurately.
+
+The ELBO can be broken down into two main parts:
+1. The reconstruction term, which measures how well the model can reconstruct the original image from the noisy image.
+2. The regularization term, which ensures that the learned distribution is close to a predefined prior distribution.
+
+By maximizing the ELBO, we ensure that the neural network learns to generate images that are both accurate and consistent with the prior distribution.
+
+##### Real-World Analogy
+Consider a real-world scenario where a company's revenue is always greater than or equal to its sales. If we aim to maximize the sales, the revenue will naturally increase as well. Similarly, by maximizing the ELBO, we are indirectly maximizing the likelihood of the observed data, leading to better performance of the neural network in the reverse process.
+
+In summary, the ELBO loss provides a way to train the neural network for the reverse process by balancing the reconstruction accuracy and the regularization, ensuring that the generated images are both realistic and consistent with the prior distribution.
 
 
 
 
 
+
+
+<br><br><br>
 # Process Overview of Stable Diffusion
 1. Autoencoder:
 - Encoding: The initial image is encoded into a latent space using an autoencoder.
