@@ -2,6 +2,54 @@
 ## What is it?
 It is a generative model that learns the probability distribution of a data set (images in this case) and can generate entirely new images by sampling from this distribution.
 
+Data is modeled as distributions to be able to evaluate probabilities using conditional probability of continuous random variables (CRV). However, there is an importance on the type of distribution we use. See the example below of a normal Gaussian distribution, let's say we toss a coin for each variable (age and height). We end up with an improbabily statistic of a 3 year old with a height of 130 cm. 
+
+![gaussian_distribution_example](images/gaussian_distribution.png)
+
+To solve this problem, we can use a probability density function (PDF) which is pretty much similar to Gaussian distribution but rather than a symmetric bell-curve shape around the mean, the shape will depend on the total area of 1. This area under the PDF curve represents the probability that the variable falls within that interval. The function is f*X*(*x*) for a random variable *X*. 
+
+In the example above, since we have two variables, we can create a **Joint Probability Distribution** graph that describes the probability distribution of the two CRVs, f*X,Y*(*x,y*) which gives the probability density at the point (*x,y*). This new graph allows us to have more a plausible statistic between age and height because the two variables of age and height now have a probability score associated with it.
+
+![probability_distribution_graph](images/probability_distribution_graph.png)
+
+Instead of evaluating each variable independently (tossing a coin for each variable), the joint distribution considers the relationship between the variables. The heatmap shown above indicates that closer to the center is a higher probability and farther is lower, representing the probability density of the two variables. With this joint distribution graph, we can evaluate probability using conditional probability or marginalizing.
+
+***Why is this important with an image dataset?*** Well this is actually what's happening for an image, we create a very complex distribution where each pixel is a CRV and each of these pixels are joined in one big joint distribution graph. 
+
+### Marginalizing a variable
+
+To further analyze the relationship between age and height, we can marginalize one of the variables. Marginalizing a variable means integrating out that variable to obtain the marginal distribution of the remaining variable. For example, to find the marginal distribution of age, we integrate the joint probability density function over all possible values of height:
+
+<pre>
+f<sub>Age</sub>(a) = ∫<sub>-∞</sub><sup>∞</sup> f<sub>Age, Height</sub>(a, h) dh
+</pre>
+
+Similarly, to find the marginal distribution of height, we integrate the joint probability density function over all possible values of age:
+
+<pre>
+f<sub>Height</sub>(h) = ∫<sub>-∞</sub><sup>∞</sup> f<sub>Age, Height</sub>(a, h) da
+</pre>
+
+By marginalizing one of the variables, we can understand the distribution of the other variable independently, while still accounting for their joint relationship.
+
+**Real-World Example**: Imagine you have a table of data with ages and heights of children. If you want to know the overall distribution of ages without considering height, you would look at the marginal distribution of age. This tells you how common each age is, regardless of height. Similarly, the marginal distribution of height tells you how common each height is, regardless of age.
+
+### Evaluating conditional probablity
+
+To evaluate the probability of one variable given another, we use **conditional probability**. Conditional probability tells us the probability of one variable given that we know the value of another variable. For example, to find the probability of a certain height given a specific age, we use the formula:
+
+<pre>
+f<sub>Height|Age</sub>(h|a) = f<sub>Age, Height</sub>(a, h) / f<sub>Age</sub>(a)
+</pre>
+
+This formula means we take the joint probability of age and height and divide it by the marginal probability of age.
+
+**Real-World Example**: If you want to know the probability of a child being 130 cm tall given that they are 10 years old, you would use the joint distribution of age and height and divide it by the marginal distribution of age. This gives you the conditional probability of height given age.
+
+
+
+
+
 # Process Overview of Stable Diffusion
 1. Autoencoder:
 - Encoding: The initial image is encoded into a latent space using an autoencoder.
