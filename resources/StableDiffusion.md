@@ -332,7 +332,9 @@ The image-to-image process in Latent Diffusion Models (LDMs) follows a similar a
 
 3. Noise Addition to Image Encoding (VAE):
    - Instead of starting with pure random noise, the encoded latent input image is partially noised.
-   - The amount of noise added depends on the strength parameter, allowing for varying degrees of transformation.
+   - The amount of noise added depends on the strength parameter, allowing for varying degrees of transformation. 
+   - The more noise we add, the model has more freedom to alter the image.
+   - The less noise we add, the model has less freedom since we wont be able change the input image dramatically.
 
 4. Denoising Process (U-Net):
    - The U-Net performs iterative denoising on the noisy latent image.
@@ -353,17 +355,61 @@ The image-to-image process in Latent Diffusion Models (LDMs) follows a similar a
    - After denoising, the final latent representation is passed through the VAE Decoder.
    - The VAE Decoder converts the latent representation back into a full-resolution image.
 
-Key components:
-- VAE Encoder: Converts the input image to latent space with noise
-- CLIP Text Encoder: Processes the optional text prompt
-- U-Net: Performs the iterative denoising in latent space
-- VAE Decoder: Converts the final latent representation to an image
-- Scheduler: Manages the denoising process, controlling noise levels and step sizes
-
 The image-to-image process allows for controlled transformation of existing images, guided by both the input image's features and optional text prompts. This enables various applications such as style transfer, image inpainting, and targeted image editing.
+<br>
 
+---
 
+### Inpainting
+![inpainting-architecture](images/inpainting-architecture.png)
 
+Inpainting is a specialized task in image generation that allows for selective modification of specific parts of an image while maintaining consistency with the rest. Here's a detailed breakdown of the inpainting process in Stable Diffusion:
+
+1. Input Preparation:
+   - Original Image: The complete image that needs partial modification.
+   - Mask: A binary mask indicating the areas to be inpainted (white for areas to be changed, black for areas to preserve).
+   - Prompt: Optional text description guiding the inpainting process.
+
+2. Image and Mask Encoding (VAE):
+   - The original image is encoded into a latent representation using the VAE Encoder.
+   - The mask is also encoded and resized to match the latent space dimensions.
+
+3. Text Encoding (CLIP Text Encoder):
+   - If a text prompt is provided, it's processed by the CLIP Text Encoder.
+   - This creates a semantic latent representation of the desired inpainting result.
+
+4. Latent Space Masking:
+   - The encoded mask is applied to the latent representation of the original image.
+   - This process effectively "cuts out" the areas to be inpainted in the latent space.
+
+5. Noise Addition:
+   - Random noise is added to the masked and original image.
+   - The amount of noise can be controlled, allowing for varying degrees of modification.
+
+6. Denoising Process (U-Net):
+   - The U-Net performs iterative denoising on the noisy latent image.
+   - It takes multiple inputs:
+     a. The noisy masked and latent image
+     b. The timestep (indicating the level of noise)
+     c. The encoded text prompt (if provided)
+     d. The original latent image (for reference)
+     e. The mask (to guide where changes should occur)
+   - The U-Net predicts the noise to be removed at each step, focusing on the masked areas.
+
+7. Conditioning and Guidance:
+   - The text embeddings (if provided) guide the denoising process in the masked areas.
+   - The original image's features influence the generation, ensuring consistency in unmasked regions.
+   - The scheduler adjusts the denoising process based on the noise levels and other settings.
+
+8. Latent Space to Image (VAE Decoder):
+   - After denoising, the final latent representation is passed through the VAE Decoder.
+   - The VAE Decoder converts the latent representation back into a full-resolution image.
+
+9. Composition:
+   - The inpainted areas are seamlessly blended with the original image using the mask.
+   - This ensures a smooth transition between the original and inpainted regions.
+
+The inpainting process allows for targeted modification of specific image areas while maintaining consistency with the original image. This enables various applications such as object removal, background changes, and selective image editing.
 
 
 
