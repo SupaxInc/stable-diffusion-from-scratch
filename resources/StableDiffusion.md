@@ -1,6 +1,13 @@
+# Table of Contents
+
+1. [How Stable Diffusion Works](#how-stable-diffusion-works)
+   1. [What is it?](#what-is-it)
+      - [Marginalizing a variable](#marginalizing-a-variable)
+      - [Evaluating conditional probability](#evaluating-conditional-probability)
+
 # How Stable Diffusion Works
-## What is it?
-It is a generative model that learns the probability distribution of a data set (images in this case) and can generate entirely new images by sampling from this distribution.
+## What is a generative model?
+A generative model learns the probability distribution of a data set (images in this case) and can generate entirely new images by sampling from this distribution.
 
 Data is modeled as distributions to be able to evaluate probabilities using conditional probability of continuous random variables (CRV). However, there is an importance on the type of distribution we use. See the example below of a normal Gaussian distribution, let's say we toss a coin for each variable (age and height). We end up with an improbable statistic of a 3 year old with a height of 130 cm. 
 
@@ -154,7 +161,7 @@ In simpler terms, the training loop for Denoising Diffusion Probabilistic Models
 6. **Repeat Until Convergence**: We repeat the above steps until the model converges, meaning the predictions become accurate enough.
 
 By following these steps, the model learns to denoise images step by step, starting from pure noise and gradually reconstructing the original image.
-<br>
+<br><br>
 
 ## Denoising U-Net
 ![u-net-architecture](images/u_net_architecture.png)
@@ -180,6 +187,8 @@ The U-Net architecture processes the image through three main paths: downsamplin
 
 Throughout this process, the U-Net is working in the latent space, which is a compressed representation of the image. This latent space can be thought of as a high-dimensional vector where each dimension represents a particular feature or attribute of the image. The U-Net's job is to move the noisy image's position in this latent space towards a position that represents a clean, noise-free version of the image.
 
+---
+
 ### Conditioning the Reverse Process (Training)
 
 From the training loop algorithm, the loss function contains the model ε<sub>θ</sub>. This model will be built using a denoising U-Net.
@@ -189,6 +198,8 @@ In the reverse process of the training loop, the denoising U-Net plays a crucial
 To generate images that align with specific prompts or conditions, we need to guide the reverse process. There are two main approaches to achieve this: classifier guidance and classifier-free guidance.
 <br>
 
+---
+
 ##### Classifier Guidance
 
 In classifier guidance, an additional classifier is trained to predict the class or attributes of an image. This classifier is then used to guide the reverse process:
@@ -196,6 +207,8 @@ In classifier guidance, an additional classifier is trained to predict the class
 1. **Classifier Training**: A separate classifier is trained on the dataset to recognize specific classes or attributes.
 2. **Gradient-based Guidance**: During the reverse process, the gradient of the classifier's output with respect to the image is used to steer the denoising process towards the desired class or attributes.
 3. **Iterative Refinement**: At each denoising step, the U-Net's output is adjusted based on the classifier's gradient, pushing the image towards the desired outcome.
+
+---
 
 ##### Classifier-Free Guidance
 
@@ -222,6 +235,40 @@ The guidance scale w controls how much the model pays attention to the condition
 - When w > 1, it emphasizes the conditioned output, potentially leading to stronger adherence to the prompt but possibly less diverse or realistic results
 
 Adjusting this guidance scale allows fine-tuning of the generation process, balancing between prompt adherence and image quality or diversity.
+<br><br>
+
+## CLIP Encoder
+![clip-encoder](images/clip_encoder.png)
+
+To be able to condition and guide the denoising U-Net to an image using a prompt, we use something called a CLIP (Contrastive Language-Image Pre-training) Encoder. The encoder will embed (vectors that represent the meaning) a text prompt and an image prompt into a shared latent space. This helps understand the meaning of images using descriptions.
+
+In the example above, you can see Image of *I* from 1 to N is matched with the descriptions of Text *T* from 1 to N. The matrix is built by the dot product of the Image *I* per row from 1 to N multiplied with all of the text embeddings. It is trained by a loss function that maximizes the value of the diagonal matches (blue squares) while the rest of the values are 0 (grey squares). The model will be able to learn to match the description of an image with the image itself. 
+
+For stable diffusion, only the text encoder will be used to embed the text prompt. In this case, the U-Net will use the embeddings as conditioning signals to guide the image to look like the prompt in each denoising step (see the reverse process).  
+<br><br>
+
+## Auto Encoder
+![autoencoder](images/autoencoder.png)
+
+The autoencoder is a network that given an image will transform into a vector (*Z*) that is much smaller than the original image. Think of it as compressing a file into a zip folder. When we pass the vector through the decoder it will re-build the original image back.
+
+The problem with autoencoders is that the code learned by the model has no sense to it. It does not capture any semantic relationships between the data. We can keep assigning vectors to the input and the code does not find any pattern associated with the images. For example, we may end up seeing that an image of a cat is very close together in vector space with an image of a pizza. 
+<br>
+
+---
+
+### Variational Auto Encoder (VAE)
+![variational_autoencoder](images/variational_autoencoder.png)
+
+To solve the problems of autoencoder we introduce a variational autoencoder, so rather the model learning code, we learn something called a ***latent space***. The latent space represents the parameters of a multivariate or joint distribution. From here we are able to capture semantic relationships between images. The embeddings in the vector space will be close together with vectors that closely match each other such as animals, food, buildings, etc.
+
+---
+
+### Latent Diffusion Model
+
+Stable Diffusion is a latent diffusion model (LDM), from what was mentioned in the beginning, a generative model learns the distribution p(x) of a dataset of images. However, an LDM learns the distribution of a *latent* representation of the dataset by using a Variational Autoencoder (VAE).
+
+VAE will help reduce the computation complexity by compressing the images of the dataset from lets say a 512x512 image to a latent representation that is 64x64. 
 
 
 <br><br><br>
