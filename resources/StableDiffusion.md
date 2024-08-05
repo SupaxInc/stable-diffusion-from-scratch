@@ -31,7 +31,7 @@ Similarly, to find the marginal distribution of height, we integrate the joint p
 f<sub>Height</sub>(h) = ∫<sub>-∞</sub><sup>∞</sup> f<sub>Age, Height</sub>(a, h) da
 </pre>
 
-By marginalizing one of the variables, we can understand the distribution of the other variable independently, while still accounting for their joint relationship.
+By marginalizing one of the variables, we can understand the distribution of the other variable independently, while still accounting for their joint relationship. In simpler terms, this means we can find out how common one variable is without considering the other variable. For example, we can determine the most common ages without worrying about heights, or the most common heights without worrying about ages.
 
 **Real-World Example**: Imagine you have a table of data with ages and heights of children. If you want to know the overall distribution of ages without considering height, you would look at the marginal distribution of age. This tells you how common each age is, regardless of height. Similarly, the marginal distribution of height tells you how common each height is, regardless of age.
 <br>
@@ -44,7 +44,7 @@ To evaluate the probability of one variable given another, we use **conditional 
 f<sub>Height|Age</sub>(h|a) = f<sub>Age, Height</sub>(a, h) / f<sub>Age</sub>(a)
 </pre>
 
-This formula means we take the joint probability of age and height and divide it by the marginal probability of age.
+This formula means we take the joint probability of age and height and divide it by the marginal probability of age. In simpler terms, this allows us to determine the probability of a certain height given a specific age. For example, if we know a person is 130 cm tall, we can use this formula to find out the probability of different ages for a person of that height. This helps us understand the relationship between age and height more clearly.
 
 **Real-World Example**: If you want to know the probability of a child being 130 cm tall given that they are 10 years old, you would use the joint distribution of age and height and divide it by the marginal distribution of age. This gives you the conditional probability of height given age.
 <br><br>
@@ -105,7 +105,7 @@ The neural network p<sub>θ</sub> is trained to minimize the difference between 
 This reverse process is also Markovian, meaning that the next state (x<sub>t-1</sub>) depends only on the current state (x<sub>t</sub>) and not on any of the previous states before x<sub>t</sub>. The Markov property simplifies the modeling of the reverse process, as it ensures that each step can be treated independently given the current state.
 <br>
 
-#### ELBO Loss in Training the Reverse Process
+#### ELBO Loss Function in Training the Reverse Process
 In training the neural network to learn the reverse process, we use the Evidence Lower Bound (ELBO) loss. The ELBO loss helps in approximating the true distribution of the data by maximizing a lower bound on the data likelihood. This process helps the neural network learn to denoise the images accurately.
 
 The ELBO can be broken down into two main parts:
@@ -114,16 +114,71 @@ The ELBO can be broken down into two main parts:
 
 By maximizing the ELBO, we ensure that the neural network learns to generate images that are both accurate and consistent with the prior distribution.
 
-##### Real-World Analogy
-Consider a real-world scenario where a company's revenue is always greater than or equal to its sales. If we aim to maximize the sales, the revenue will naturally increase as well. Similarly, by maximizing the ELBO, we are indirectly maximizing the likelihood of the observed data, leading to better performance of the neural network in the reverse process.
+First we start by maximizing the log likelihood of our data by marginalizing over all other latent variables. Then we find a lower bound for the log likelihood, that is log(p<sub>θ</sub>(x<sub>0</sub>)) >= ELBO. As you can see, maximizing the ELBO also indirectly maximizes the log likelihood of the data.
 
 In summary, the ELBO loss provides a way to train the neural network for the reverse process by balancing the reconstruction accuracy and the regularization, ensuring that the generated images are both realistic and consistent with the prior distribution.
 
+##### Real-World Analogy
+Consider a real-world scenario where a company's revenue is always greater than or equal to its sales. If we aim to maximize the sales, the revenue will naturally increase as well. Similarly, by maximizing the ELBO, we are indirectly maximizing the likelihood of the observed data, leading to better performance of the neural network in the reverse process.
+<br><br>
 
+## Training Loop
+![training_loop](images/training_loop.png)
 
+In simpler terms, the training loop for Denoising Diffusion Probabilistic Models (DDPM) involves the following steps:
 
+1. **Sample an Image**: We start by taking a sample image (or batches) from our dataset, denoted as x<sub>0</sub>.
+2. **Select a Random Time Step**: We randomly choose a time step t from a uniform distribution between 1 and T.
+3. **Generate Random Noise**: We generate random noise ε (epsilon) from a normal distribution with mean 0 and variance 1.
+4. **Add Noise to the Image**: We add the generated noise to the image (or each images) at time step *t* using the formula:
+   <pre>
+   x<sub>t</sub> = √(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε
+   </pre>
+   Here, α̅<sub>t</sub> is a predefined noise schedule that controls the amount of noise added at each time step.
+5. **Train the Model**: We train the neural network to predict the noise added to the image by minimizing the difference between the actual noise and the predicted noise. This is done using gradient descent on the loss function:
+   <pre>
+   ∇<sub>θ</sub> || ε - ε<sub>θ</sub>(√(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε, t) ||<sup>2</sup>
+   </pre>
+   Here, ε<sub>θ</sub> is the noise predicted by the neural network, and θ represents the parameters of the neural network. Remember that theta comes from the reverse process.
+   
+   The formula can be broken down as follows:
+   - ε: The actual noise added to the image.
+   - ε<sub>θ</sub>(√(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε, t): The noise predicted by the neural network given the noisy image and the time step t.
+   - ε<sub>θ</sub>: The model as it represents the neural network's prediction of the noise, parameterized by θ.
+   - || ε - ε<sub>θ</sub>(...) ||<sup>2</sup>: The squared difference between the actual noise and the predicted noise, which we aim to minimize.
+   - ∇<sub>θ</sub>: The gradient with respect to the neural network parameters θ, used for updating the model during training.
 
+   Simplified, the goal is to adjust the neural network parameters θ so that the predicted noise ε<sub>θ</sub> closely matches the actual noise ε. By minimizing this loss, we are able to maximize the ELBO, ensuring the neural network learns to denoise the images effectively.
+6. **Repeat Until Convergence**: We repeat the above steps until the model converges, meaning the predictions become accurate enough.
 
+By following these steps, the model learns to denoise images step by step, starting from pure noise and gradually reconstructing the original image.
+<br>
+
+### Denoising U-Net
+![u-net-architecture](images/u_net_architecture.png)
+
+From the training loop algorithm, the loss function contains ε<sub>θ</sub>. This model will be built using a denoising U-Net.
+
+In the reverse process of the training loop, the denoising U-Net plays a crucial role in removing the noise added to the images at each time step. By predicting the noise component ε<sub>θ</sub>, the U-Net helps in reconstructing the image step by step, gradually refining it to resemble the original image or a target prompt.
+
+#### Denoising U-Net with a Prompt
+When provided with a prompt, the U-Net leverages the guidance from the prompt to generate images that are closer to the desired output. This is achieved by conditioning the denoising process on the prompt, allowing the model to incorporate the contextual information from the prompt into the denoising steps. The steps are as follows:
+1. **Input the Noisy Image and Prompt**: The noisy image at a given time step t and the text prompt are fed into the U-Net.
+2. **Text Encoding**: The text prompt is encoded into a latent vector using a text encoder (e.g., CLIP).
+3. **Cross-Attention Mechanism**: The encoded text vector is used in the cross-attention blocks within the U-Net to guide the denoising process.
+4. **Noise Prediction**: The U-Net predicts the noise component ε<sub>θ</sub> by considering both the noisy image and the contextual information from the prompt.
+5. **Noise Removal**: The predicted noise is subtracted from the noisy image to obtain a less noisy image.
+6. **Iterative Refinement**: Steps 1-5 are repeated iteratively for each time step until the image is fully denoised and closely matches the desired output based on the prompt.
+
+#### Denoising U-Net without a Prompt (Classifier-Free Guidance)
+In the case of classifier-free guidance, where no prompt is provided, the U-Net relies solely on the learned distribution to remove the noise and reconstruct the image. This approach allows the model to generate images without any specific guidance, relying on its internal understanding of the data distribution to produce coherent and realistic outputs. The steps are as follows:
+1. **Input the Noisy Image**: The noisy image at a given time step t is fed into the U-Net.
+2. **Self-Attention Mechanism**: The U-Net uses self-attention blocks to capture long-range dependencies and contextual information within the noisy image.
+3. **Noise Prediction**: The U-Net predicts the noise component ε<sub>θ</sub> based solely on the noisy image.
+4. **Noise Removal**: The predicted noise is subtracted from the noisy image to obtain a less noisy image.
+5. **Iterative Refinement**: Steps 1-4 are repeated iteratively for each time step until the image is fully denoised and resembles a coherent and realistic output based on the model's learned distribution.
+
+By iteratively applying the denoising U-Net in the reverse process, we can effectively remove the noise and build images that are either aligned with a given prompt or generated freely based on the model's learned distribution.
 
 <br><br><br>
 # Process Overview of Stable Diffusion
