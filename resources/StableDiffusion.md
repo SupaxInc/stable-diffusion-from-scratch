@@ -195,7 +195,7 @@ From the training loop algorithm, the loss function contains the model ε<sub>θ
 
 In the reverse process of the training loop, the denoising U-Net plays a crucial role in removing the noise added to the images at each time step. By predicting the noise component ε<sub>θ</sub>, the U-Net helps in reconstructing the image step by step, gradually refining it to resemble the original image or a target prompt. 
 
-To generate images that align with specific prompts or conditions, we need to guide the reverse process. There are two main approaches to achieve this: classifier guidance and classifier-free guidance.
+Now that we are able to predict the noise, we need a way to guide images that align with specific prompts or conditions since the model won't know what we want as output if we are starting off from pure noise in the reverse process. There are two main approaches to achieve this: classifier guidance and classifier-free guidance.
 <br>
 
 ---
@@ -204,7 +204,7 @@ To generate images that align with specific prompts or conditions, we need to gu
 
 In classifier guidance, an additional classifier is trained to predict the class or attributes of an image. This classifier is then used to guide the reverse process:
 
-1. **Classifier Training**: A separate classifier is trained on the dataset to recognize specific classes or attributes.
+1. **Classifier Training**: A separate classifier is trained on the dataset to recognize specific classes or attributes. (E.g. CLIP Encoder)
 2. **Gradient-based Guidance**: During the reverse process, the gradient of the classifier's output with respect to the image is used to steer the denoising process towards the desired class or attributes.
 3. **Iterative Refinement**: At each denoising step, the U-Net's output is adjusted based on the classifier's gradient, pushing the image towards the desired outcome.
 
@@ -214,7 +214,7 @@ In classifier guidance, an additional classifier is trained to predict the class
 
 Classifier-free guidance, on the other hand, doesn't require a separate classifier. Instead, it uses a single network trained to handle both conditioned and unconditioned generation:
 
-1. **Training Process**: During training, with some probability, the conditional signal (e.g., text prompt) is set to zero or a null token.
+1. **Training Process**: During training, with some probability, the conditional signal (e.g., text prompt) is set to zero or a null token. For example, there is a 50% chance that we set the prompt as zero and let the model remove the noise without the prompt. This way the model knows to learn to pay attention to the prompt and to not pay attention to the prompt. 
 2. **Dual Outputs**: As a result, the network learns to produce both conditioned and unconditioned outputs.
 3. **Guidance Scale**: During inference, both the conditioned and unconditioned outputs are generated and then combined using a guidance scale parameter.
 4. **Weighted Combination**: The final output is a weighted combination of the conditioned and unconditioned predictions, where the weight (guidance scale) determines how much influence the conditioning signal has.
@@ -300,7 +300,7 @@ The full architecture of the text-to-image process in Latent Diffusion Models (L
    - In each denoising step, self-attention helps refine image details by relating different image regions, while cross-attention guides the process using the text embeddings.
    - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
    - The scheduler then plays a crucial role in the denoising process:
-     - It takes the noise prediction from the U-Net and updates the noisy latent image.
+     - It takes the noise prediction from the U-Net and updates the noisy latent image with less noise.
      - It determines the step size and noise level for each iteration, potentially skipping steps (e.g., from 1000 to 980).
      - The scheduler implements the specific diffusion algorithm, such as DDPM, DDIM, or others.
      - It manages the trade-off between speed and quality by controlling the number and size of denoising steps.
@@ -362,7 +362,7 @@ The image-to-image process in Latent Diffusion Models (LDMs) follows a similar a
      - Cross-attention guides the process using both the text embeddings (if available) and the latent representation of the input image.
    - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
    - The scheduler then plays a crucial role in the denoising process:
-     - It takes the noise prediction from the U-Net and updates the noisy latent image.
+     - It takes the noise prediction from the U-Net and updates the noisy latent image with less noise.
      - It determines the step size and noise level for each iteration, potentially skipping steps to optimize the process.
      - The scheduler implements the specific diffusion algorithm, such as DDPM, DDIM, or others, adapting it to the image-to-image context.
      - It manages the trade-off between preserving the original image features and incorporating new elements based on the strength parameter.
@@ -421,7 +421,7 @@ Inpainting is a specialized task in image generation that allows for selective m
    - The U-Net uses self-attention and cross-attention mechanisms during the denoising process.
    - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
    - The scheduler plays a crucial role in the inpainting process:
-     - It uses the noise prediction from the U-Net to update the noisy latent image.
+     - It uses the noise prediction from the U-Net to update the noisy latent image with less noise.
      - It determines the step size and noise level for each iteration.
      - It combines the masked image with the original latent at each time step:
        - Using the mask to blend the noisy latent of the original image with the latent of the masked area.
