@@ -261,6 +261,7 @@ The problem with autoencoders is that the code learned by the model has no sense
 ![variational_autoencoder](images/variational_autoencoder.png)
 
 To solve the problems of autoencoder we introduce a variational autoencoder, so rather the model learning code, we learn something called a ***latent space***. The latent space represents the parameters of a multivariate or joint distribution. From here we are able to capture semantic relationships between images. The embeddings in the vector space will be close together with vectors that closely match each other such as animals, food, buildings, etc.
+<br>
 
 ---
 
@@ -269,6 +270,102 @@ To solve the problems of autoencoder we introduce a variational autoencoder, so 
 Stable Diffusion is a latent diffusion model (LDM), from what was mentioned in the beginning, a generative model learns the distribution p(x) of a dataset of images. However, an LDM learns the distribution of a *latent* representation of the dataset by using a Variational Autoencoder (VAE).
 
 VAE will help reduce the computation complexity by compressing the images of the dataset from lets say a 512x512 image to a latent representation that is 64x64. 
+<br><br>
+
+
+## Full Architecture Combined
+### Text-To-Image
+![text-to-image](images/text-to-image.png)
+
+The full architecture of the text-to-image process in Latent Diffusion Models (LDMs) can be broken down into the following simplified steps:
+
+1. Text Encoding (CLIP Text Encoder):
+   - The input text prompt is processed by the CLIP Text Encoder.
+   - This encoder converts the text into a latent representation that captures its semantic meaning.
+
+2. Random Noise Generation (VAE):
+   - A random noise tensor is generated in the latent space (*Z*) using the VAE.
+   - This serves as the starting point for the image generation process.
+
+3. Denoising Process (U-Net):
+   - The U-Net, which is the core of the diffusion model, iteratively denoises the latent representation.
+   - It takes four inputs:
+     a. The noisy latent image
+     b. The timestep (indicating the level of noise)
+     c. The encoded text prompt from step 1
+     d. The scheduler's current parameters such as time embeddings
+   - The U-Net predicts the noise to be removed at each step to guide it to the image of the prompt.
+   - The scheduler then guides the denoising process, determining the step size and noise level for each iteration, for example, in the next    iteration, we may skip 20 time steps from 1000 to 980. We continue until there are no more noises in the image.
+
+5. Conditioning and Guidance:
+   - The text embeddings from the CLIP Text Encoder guide the denoising process.
+   - This ensures that the generated image aligns with the input text prompt.
+   - The scheduler may adjust the strength of this guidance based on its parameters.
+
+6. Latent Space to Image (VAE Decoder):
+   - Once the denoising process is complete, the final latent representation is passed through the VAE Decoder.
+   - The VAE Decoder converts the latent representation back into a full-resolution image.
+
+Key components:
+- CLIP Text Encoder: Processes the input text prompt
+- U-Net: Performs the iterative denoising in latent space
+- VAE Decoder: Converts the final latent representation to an image
+- Scheduler: Manages the denoising process, controlling noise levels and step sizes
+
+This process combines the efficiency of working in a compressed latent space (thanks to the VAE) with the power of diffusion models and the semantic understanding provided by CLIP, resulting in high-quality, text-guided image generation.
+<br>
+
+---
+
+### Image-To-Image
+![image-to-image](images/image-to-image.png)
+
+The image-to-image process in Latent Diffusion Models (LDMs) follows a similar architecture to the text-to-image process, with some key differences. Here's a simplified breakdown of the steps:
+
+1. Image Encoding (VAE):
+   - The input image is processed by the VAE Encoder. (differs with text-to-image where its just a random noisy latent image)
+   - This encoder converts the image into a latent representation in the compressed latent space.
+
+2. Text Encoding (CLIP Text Encoder):
+   - If there's an accompanying text prompt, it's processed by the CLIP Text Encoder.
+   - This step is similar to the text-to-image process, converting text into a semantic latent representation.
+
+3. Noise Addition to Image Encoding (VAE):
+   - Instead of starting with pure random noise, the encoded latent input image is partially noised.
+   - The amount of noise added depends on the strength parameter, allowing for varying degrees of transformation.
+
+4. Denoising Process (U-Net):
+   - The U-Net performs iterative denoising on the noisy latent image.
+   - It takes four inputs:
+     a. The noisy latent image
+     b. The timestep (indicating the level of noise)
+     c. The encoded text prompt (if provided)
+     d. The scheduler's current parameters
+   - The U-Net predicts the noise to be removed at each step, guided by both the input image and text prompt.
+   - Remember that the denoising process could change depending if its classifier guidance or classifier-free guidance.
+
+5. Conditioning and Guidance:
+   - The text embeddings (if provided) guide the denoising process.
+   - The initial image's features also influence the generation, maintaining relevant aspects of the original image.
+   - The scheduler adjusts the denoising process based on the strength parameter and other settings.
+
+6. Latent Space to Image (VAE Decoder):
+   - After denoising, the final latent representation is passed through the VAE Decoder.
+   - The VAE Decoder converts the latent representation back into a full-resolution image.
+
+Key components:
+- VAE Encoder: Converts the input image to latent space with noise
+- CLIP Text Encoder: Processes the optional text prompt
+- U-Net: Performs the iterative denoising in latent space
+- VAE Decoder: Converts the final latent representation to an image
+- Scheduler: Manages the denoising process, controlling noise levels and step sizes
+
+The image-to-image process allows for controlled transformation of existing images, guided by both the input image's features and optional text prompts. This enables various applications such as style transfer, image inpainting, and targeted image editing.
+
+
+
+
+
 
 
 <br><br><br>
