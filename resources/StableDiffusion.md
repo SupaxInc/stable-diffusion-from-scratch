@@ -287,32 +287,43 @@ The full architecture of the text-to-image process in Latent Diffusion Models (L
    - A random noise tensor is generated in the latent space (*Z*) using the VAE.
    - This serves as the starting point for the image generation process.
 
-3. Denoising Process (U-Net):
+3. Denoising Process (U-Net and Scheduler):
    - The U-Net, which is the core of the diffusion model, iteratively denoises the latent representation.
    - It takes four inputs:
      a. The noisy latent image
      b. The timestep (indicating the level of noise)
      c. The encoded text prompt from step 1
      d. The scheduler's current parameters such as time embeddings
-   - The U-Net predicts the noise to be removed at each step to guide it to the image of the prompt.
-   - The scheduler then guides the denoising process, determining the step size and noise level for each iteration, for example, in the next    iteration, we may skip 20 time steps from 1000 to 980. We continue until there are no more noises in the image.
+   - The U-Net uses self-attention and cross-attention mechanisms during the denoising process:
+     - Self-attention: Allows the model to consider relationships between different parts of the image itself.
+     - Cross-attention: Enables the model to align the image generation with the text prompt.
+   - In each denoising step, self-attention helps refine image details by relating different image regions, while cross-attention guides the process using the text embeddings.
+   - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
+   - The scheduler then plays a crucial role in the denoising process:
+     - It takes the noise prediction from the U-Net and updates the noisy latent image.
+     - It determines the step size and noise level for each iteration, potentially skipping steps (e.g., from 1000 to 980).
+     - The scheduler implements the specific diffusion algorithm, such as DDPM, DDIM, or others.
+     - It manages the trade-off between speed and quality by controlling the number and size of denoising steps.
+     - The scheduler also handles any additional techniques like classifier-free guidance, adjusting the noise prediction based on the guidance scale.
+   - This process continues iteratively until the scheduler determines that the image has been sufficiently denoised.
 
-5. Conditioning and Guidance:
-   - The text embeddings from the CLIP Text Encoder guide the denoising process.
+4. Conditioning and Guidance:
+   - The text embeddings from the CLIP Text Encoder guide the denoising process through cross-attention.
    - This ensures that the generated image aligns with the input text prompt.
    - The scheduler may adjust the strength of this guidance based on its parameters.
+   - Remember that the denoising process could change depending if its classifier guidance or classifier-free guidance.
 
-6. Latent Space to Image (VAE Decoder):
+5. Latent Space to Image (VAE Decoder):
    - Once the denoising process is complete, the final latent representation is passed through the VAE Decoder.
    - The VAE Decoder converts the latent representation back into a full-resolution image.
 
 Key components:
 - CLIP Text Encoder: Processes the input text prompt
-- U-Net: Performs the iterative denoising in latent space
+- U-Net: Performs the iterative denoising in latent space, utilizing self-attention and cross-attention
 - VAE Decoder: Converts the final latent representation to an image
-- Scheduler: Manages the denoising process, controlling noise levels and step sizes
+- Scheduler: Manages the denoising process, controlling noise levels, step sizes, and implementing the specific diffusion algorithm
 
-This process combines the efficiency of working in a compressed latent space (thanks to the VAE) with the power of diffusion models and the semantic understanding provided by CLIP, resulting in high-quality, text-guided image generation.
+This process combines the efficiency of working in a compressed latent space (thanks to the VAE) with the power of diffusion models and the semantic understanding provided by CLIP. The scheduler plays a vital role in orchestrating the denoising process, balancing speed and quality while implementing the core diffusion algorithm.
 <br>
 
 ---
@@ -336,26 +347,39 @@ The image-to-image process in Latent Diffusion Models (LDMs) follows a similar a
    - The more noise we add, the model has more freedom to alter the image.
    - The less noise we add, the model has less freedom since we wont be able change the input image dramatically.
 
-4. Denoising Process (U-Net):
+4. Denoising Process (U-Net and Scheduler):
    - The U-Net performs iterative denoising on the noisy latent image.
    - It takes four inputs:
      a. The noisy latent image
      b. The timestep (indicating the level of noise)
      c. The encoded text prompt (if provided)
      d. The scheduler's current parameters
-   - The U-Net predicts the noise to be removed at each step, guided by both the input image and text prompt.
-   - Remember that the denoising process could change depending if its classifier guidance or classifier-free guidance.
+   - The U-Net uses self-attention and cross-attention mechanisms during the denoising process:
+     - Self-attention: Allows the model to consider relationships between different parts of the image itself, helping to maintain coherence and structure from the input image.
+     - Cross-attention: Enables the model to align the image generation with the text prompt (if provided) and the features of the input image.
+   - In each denoising step:
+     - Self-attention helps refine image details by relating different image regions, preserving relevant features from the input image.
+     - Cross-attention guides the process using both the text embeddings (if available) and the latent representation of the input image.
+   - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
+   - The scheduler then plays a crucial role in the denoising process:
+     - It takes the noise prediction from the U-Net and updates the noisy latent image.
+     - It determines the step size and noise level for each iteration, potentially skipping steps to optimize the process.
+     - The scheduler implements the specific diffusion algorithm, such as DDPM, DDIM, or others, adapting it to the image-to-image context.
+     - It manages the trade-off between preserving the original image features and incorporating new elements based on the strength parameter.
+     - The scheduler may also handle techniques like classifier-free guidance, adjusting the noise prediction based on the guidance scale.
+   - This process continues iteratively until the scheduler determines that the image has been sufficiently denoised and transformed.
 
 5. Conditioning and Guidance:
-   - The text embeddings (if provided) guide the denoising process.
-   - The initial image's features also influence the generation, maintaining relevant aspects of the original image.
+   - The text embeddings (if provided) guide the denoising process through cross-attention.
+   - The initial image's features also influence the generation via self-attention and cross-attention, maintaining relevant aspects of the original image.
    - The scheduler adjusts the denoising process based on the strength parameter and other settings.
+   - Remember that the denoising process could change depending if its classifier guidance or classifier-free guidance.
 
 6. Latent Space to Image (VAE Decoder):
    - After denoising, the final latent representation is passed through the VAE Decoder.
    - The VAE Decoder converts the latent representation back into a full-resolution image.
 
-The image-to-image process allows for controlled transformation of existing images, guided by both the input image's features and optional text prompts. This enables various applications such as style transfer, image inpainting, and targeted image editing.
+The image-to-image process allows for controlled transformation of existing images, guided by both the input image's features and optional text prompts. The use of self-attention and cross-attention in the U-Net enables the model to balance preserving relevant aspects of the input image while incorporating changes based on the text prompt, resulting in coherent and contextually appropriate transformations. The scheduler plays a vital role in orchestrating this process, balancing the preservation of original features with the introduction of new elements based on the desired transformation strength.
 <br>
 
 ---
@@ -394,20 +418,28 @@ Inpainting is a specialized task in image generation that allows for selective m
      c. The encoded text prompt (if provided)
      d. The original latent image (for reference)
      e. The mask (to guide where changes should occur)
-   - The U-Net predicts the noise to be removed at each step, focusing on the masked areas.
-   - The scheduler then combines the masked image with the latent at each time step:
-     - It uses the mask to blend the noisy latent of the original image with the latent of the masked area.
-     - This combined latent is fed into the U-Net at each denoising step.
-   - This process "fools" the model by:
-     1. Preserving the original image information outside the mask.
-     2. Allowing the model to generate new content only within the masked region.
-     3. Maintaining consistency between the inpainted area and the rest of the image.
-   - The scheduler gradually reduces the influence of the original image in masked areas as denoising progresses.
+   - The U-Net uses self-attention and cross-attention mechanisms during the denoising process.
+   - The U-Net predicts the noise to be removed at each step, guided by both attention mechanisms.
+   - The scheduler plays a crucial role in the inpainting process:
+     - It uses the noise prediction from the U-Net to update the noisy latent image.
+     - It determines the step size and noise level for each iteration.
+     - It combines the masked image with the original latent at each time step:
+       - Using the mask to blend the noisy latent of the original image with the latent of the masked area.
+       - This combined latent is fed into the U-Net at each denoising step.
+     - It gradually reduces the influence of the original image in masked areas as denoising progresses.
+     - It implements specific diffusion algorithms (e.g., DDPM, DDIM) adapted for the inpainting context.
+     - It manages the trade-off between preserving original image features and incorporating new elements.
+     - It may handle techniques like classifier-free guidance, adjusting the noise prediction based on the guidance scale.
+   - This process effectively:
+     1. Preserves the original image information outside the mask.
+     2. Allows the model to generate new content only within the masked region.
+     3. Maintains consistency between the inpainted area and the rest of the image.
 
 7. Conditioning and Guidance:
-   - The text embeddings (if provided) guide the denoising process in the masked areas.
-   - The original image's features influence the generation, ensuring consistency in unmasked regions.
+   - The text embeddings (if provided) guide the denoising process in the masked areas through cross-attention.
+   - The original image's features influence the generation via self-attention and cross-attention, ensuring consistency in unmasked regions and coherent transitions to inpainted areas.
    - The scheduler adjusts the denoising process based on the noise levels and other settings.
+   - Remember that the denoising process could change depending if its classifier guidance or classifier-free guidance.
 
 8. Latent Space to Image (VAE Decoder):
    - After denoising, the final latent representation is passed through the VAE Decoder.
@@ -417,7 +449,7 @@ Inpainting is a specialized task in image generation that allows for selective m
    - The inpainted areas are seamlessly blended with the original image using the mask.
    - This ensures a smooth transition between the original and inpainted regions.
 
-The inpainting process allows for targeted modification of specific image areas while maintaining consistency with the original image. This enables various applications such as object removal, background changes, and selective image editing.
+The inpainting process allows for targeted modification of specific image areas while maintaining consistency with the original image. The use of self-attention and cross-attention in the U-Net enables the model to balance preserving relevant aspects of the original image while incorporating changes based on the text prompt and mask, resulting in coherent and contextually appropriate inpainting. The scheduler's role is crucial in orchestrating this process, managing the denoising steps, and ensuring a smooth transition between the original and inpainted areas.
 
 
 
