@@ -122,6 +122,8 @@ In summary, the ELBO loss provides a way to train the neural network for the rev
 Consider a real-world scenario where a company's revenue is always greater than or equal to its sales. If we aim to maximize the sales, the revenue will naturally increase as well. Similarly, by maximizing the ELBO, we are indirectly maximizing the likelihood of the observed data, leading to better performance of the neural network in the reverse process.
 <br><br>
 
+## Algorithms
+
 ## Training Loop
 ![training_loop](images/training_loop.png)
 
@@ -154,31 +156,73 @@ In simpler terms, the training loop for Denoising Diffusion Probabilistic Models
 By following these steps, the model learns to denoise images step by step, starting from pure noise and gradually reconstructing the original image.
 <br>
 
-### Denoising U-Net
+## Denoising U-Net
 ![u-net-architecture](images/u_net_architecture.png)
 
-From the training loop algorithm, the loss function contains ε<sub>θ</sub>. This model will be built using a denoising U-Net.
+The U-Net architecture processes the image through three main paths: downsampling, bottleneck, and upsampling. Here's a simplified explanation of how the image moves through the U-Net:
 
-In the reverse process of the training loop, the denoising U-Net plays a crucial role in removing the noise added to the images at each time step. By predicting the noise component ε<sub>θ</sub>, the U-Net helps in reconstructing the image step by step, gradually refining it to resemble the original image or a target prompt.
+1. **Downsampling Path (Encoder)**:
+   - The noisy image enters the U-Net and passes through a series of convolutional layers.
+   - Each layer reduces the spatial dimensions (width and height) while increasing the number of channels.
+   - This process captures increasingly abstract features of the image.
+   - The image's representation becomes more compact but richer in information.
 
-#### Denoising U-Net with a Prompt
-When provided with a prompt, the U-Net leverages the guidance from the prompt to generate images that are closer to the desired output. This is achieved by conditioning the denoising process on the prompt, allowing the model to incorporate the contextual information from the prompt into the denoising steps. The steps are as follows:
-1. **Input the Noisy Image and Prompt**: The noisy image at a given time step t and the text prompt are fed into the U-Net.
-2. **Text Encoding**: The text prompt is encoded into a latent vector using a text encoder (e.g., CLIP).
-3. **Cross-Attention Mechanism**: The encoded text vector is used in the cross-attention blocks within the U-Net to guide the denoising process.
-4. **Noise Prediction**: The U-Net predicts the noise component ε<sub>θ</sub> by considering both the noisy image and the contextual information from the prompt.
-5. **Noise Removal**: The predicted noise is subtracted from the noisy image to obtain a less noisy image.
-6. **Iterative Refinement**: Steps 1-5 are repeated iteratively for each time step until the image is fully denoised and closely matches the desired output based on the prompt.
+2. **Bottleneck**:
+   - The image reaches its most compressed form at the bottom of the 'U'.
+   - Here, the model processes the most abstract representation of the image.
+   - This is where the model can make global decisions about the image content.
 
-#### Denoising U-Net without a Prompt (Classifier-Free Guidance)
-In the case of classifier-free guidance, where no prompt is provided, the U-Net relies solely on the learned distribution to remove the noise and reconstruct the image. This approach allows the model to generate images without any specific guidance, relying on its internal understanding of the data distribution to produce coherent and realistic outputs. The steps are as follows:
-1. **Input the Noisy Image**: The noisy image at a given time step t is fed into the U-Net.
-2. **Self-Attention Mechanism**: The U-Net uses self-attention blocks to capture long-range dependencies and contextual information within the noisy image.
-3. **Noise Prediction**: The U-Net predicts the noise component ε<sub>θ</sub> based solely on the noisy image.
-4. **Noise Removal**: The predicted noise is subtracted from the noisy image to obtain a less noisy image.
-5. **Iterative Refinement**: Steps 1-4 are repeated iteratively for each time step until the image is fully denoised and resembles a coherent and realistic output based on the model's learned distribution.
+3. **Upsampling Path (Decoder)**:
+   - The process reverses, gradually increasing spatial dimensions and decreasing channel depth.
+   - Skip connections from the downsampling path provide additional context.
+   - These connections help preserve fine details that might have been lost during downsampling.
+   - The image is progressively reconstructed, removing noise at each step.
 
-By iteratively applying the denoising U-Net in the reverse process, we can effectively remove the noise and build images that are either aligned with a given prompt or generated freely based on the model's learned distribution.
+Throughout this process, the U-Net is working in the latent space, which is a compressed representation of the image. This latent space can be thought of as a high-dimensional vector where each dimension represents a particular feature or attribute of the image. The U-Net's job is to move the noisy image's position in this latent space towards a position that represents a clean, noise-free version of the image.
+
+### Conditioning the Reverse Process (Training)
+
+From the training loop algorithm, the loss function contains the model ε<sub>θ</sub>. This model will be built using a denoising U-Net.
+
+In the reverse process of the training loop, the denoising U-Net plays a crucial role in removing the noise added to the images at each time step. By predicting the noise component ε<sub>θ</sub>, the U-Net helps in reconstructing the image step by step, gradually refining it to resemble the original image or a target prompt. 
+
+To generate images that align with specific prompts or conditions, we need to guide the reverse process. There are two main approaches to achieve this: classifier guidance and classifier-free guidance.
+<br>
+
+##### Classifier Guidance
+
+In classifier guidance, an additional classifier is trained to predict the class or attributes of an image. This classifier is then used to guide the reverse process:
+
+1. **Classifier Training**: A separate classifier is trained on the dataset to recognize specific classes or attributes.
+2. **Gradient-based Guidance**: During the reverse process, the gradient of the classifier's output with respect to the image is used to steer the denoising process towards the desired class or attributes.
+3. **Iterative Refinement**: At each denoising step, the U-Net's output is adjusted based on the classifier's gradient, pushing the image towards the desired outcome.
+
+##### Classifier-Free Guidance
+
+Classifier-free guidance, on the other hand, doesn't require a separate classifier. Instead, it uses a single network trained to handle both conditioned and unconditioned generation:
+
+1. **Training Process**: During training, with some probability, the conditional signal (e.g., text prompt) is set to zero or a null token.
+2. **Dual Outputs**: As a result, the network learns to produce both conditioned and unconditioned outputs.
+3. **Guidance Scale**: During inference, both the conditioned and unconditioned outputs are generated and then combined using a guidance scale parameter.
+4. **Weighted Combination**: The final output is a weighted combination of the conditioned and unconditioned predictions, where the weight (guidance scale) determines how much influence the conditioning signal has.
+
+The combine output formula for classifier-free guidance is typically expressed as:
+
+z<sub>guided</sub> = z<sub>uncond</sub> + w * (z<sub>cond</sub> - z<sub>uncond</sub>)
+
+Where:
+- z<sub>guided</sub> is the final guided output
+- z<sub>uncond</sub> is the unconditioned output
+- z<sub>cond</sub> is the conditioned output (based on the prompt)
+- w is the guidance scale (weight)
+
+The guidance scale w controls how much the model pays attention to the conditioning signal (prompt):
+- When w = 0, the output is purely unconditioned (ignores the prompt)
+- When w = 1, it's a balanced mix of conditioned and unconditioned outputs
+- When w > 1, it emphasizes the conditioned output, potentially leading to stronger adherence to the prompt but possibly less diverse or realistic results
+
+Adjusting this guidance scale allows fine-tuning of the generation process, balancing between prompt adherence and image quality or diversity.
+
 
 <br><br><br>
 # Process Overview of Stable Diffusion
