@@ -386,15 +386,23 @@ Inpainting is a specialized task in image generation that allows for selective m
    - Random noise is added to the masked and original image.
    - The amount of noise can be controlled, allowing for varying degrees of modification.
 
-6. Denoising Process (U-Net):
+6. Denoising Process (U-Net) and Scheduler Interaction:
    - The U-Net performs iterative denoising on the noisy latent image.
    - It takes multiple inputs:
-     a. The noisy masked and latent image
+     a. The noisy latent image (combination of masked and original latents)
      b. The timestep (indicating the level of noise)
      c. The encoded text prompt (if provided)
      d. The original latent image (for reference)
      e. The mask (to guide where changes should occur)
    - The U-Net predicts the noise to be removed at each step, focusing on the masked areas.
+   - The scheduler then combines the masked image with the latent at each time step:
+     - It uses the mask to blend the noisy latent of the original image with the latent of the masked area.
+     - This combined latent is fed into the U-Net at each denoising step.
+   - This process "fools" the model by:
+     1. Preserving the original image information outside the mask.
+     2. Allowing the model to generate new content only within the masked region.
+     3. Maintaining consistency between the inpainted area and the rest of the image.
+   - The scheduler gradually reduces the influence of the original image in masked areas as denoising progresses.
 
 7. Conditioning and Guidance:
    - The text embeddings (if provided) guide the denoising process in the masked areas.
