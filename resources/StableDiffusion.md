@@ -1,9 +1,29 @@
 # Table of Contents
 
 1. [How Stable Diffusion Works](#how-stable-diffusion-works)
-   1. [What is it?](#what-is-it)
+   1. [What is it?](#What-is-a-generative-model?)
       - [Marginalizing a variable](#marginalizing-a-variable)
-      - [Evaluating conditional probability](#evaluating-conditional-probability)
+      - [Evaluating conditional probability](#Evaluating-conditional-probablity)
+   2. [Forward and Reverse Process](#forward-and-reverse-process)
+      - [Forward Process](#forward-process)
+      - [Reverse Process](#reverse-process)
+      - [ELBO Loss Function in Training the Reverse Process](#elbo-loss-function-in-training-the-reverse-process)
+   3. [Training Loop](#training-loop)
+   4. [Denoising U-Net](#denoising-u-net)
+2. [Algorithms](#algorithms)
+   1. [Classifier Guidance](#classifier-guidance)
+   2. [Classifier-Free Guidance](#classifier-free-guidance)
+3. [CLIP Encoder](#clip-encoder)
+4. [Auto Encoder](#auto-encoder)
+   1. [Variational Auto Encoder (VAE)](#variational-auto-encoder-vae)
+   2. [Latent Diffusion Model](#latent-diffusion-model)
+5. [Full Architecture Combined](#full-architecture-combined)
+   1. [Text-To-Image](#text-to-image)
+   2. [Image-To-Image](#image-to-image)
+   3. [Inpainting](#inpainting)
+6. [Layers](#layers)
+   1. [Layer Normalization](#layer-normalization)
+   2. [Group Normalization](#group-normalization)
 
 # How Stable Diffusion Works
 ## What is a generative model?
