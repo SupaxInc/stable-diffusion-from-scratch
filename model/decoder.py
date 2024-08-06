@@ -10,6 +10,15 @@ class VAE_AttentionBlock(nn.Module):
         super().__init__()
 
         self.groupNorm = nn.GroupNorm(32, channels)
+        self.attention = SelfAttention(1, channels)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args: 
+             x: Input tensor to the network (Batch, Features, Height, Width)
+        """
+
+
 
 
 class VAE_ResidualBlock(nn.Module):
@@ -32,8 +41,16 @@ class VAE_ResidualBlock(nn.Module):
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
+        Forward pass of the residual block for a VAE.
+
+        This method helps mitigate the vanishing gradient problem by using residual connections.
+        The input tensor is then added back to the output tensor to preserve information and ensure stable gradients.
+
         Args: 
              x: Input tensor to the network (Batch, In_Channel, Height, Width)
+
+        Returns:
+             torch.Tensor: Output tensor after applying the residual block (Batch, Out_Channel, Height, Width)
         """
 
         # Residue preserves the input tensor to be added back to the output after passing through the conv layers
