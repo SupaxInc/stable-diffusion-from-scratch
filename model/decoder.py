@@ -5,22 +5,6 @@ from attention import SelfAttention
 
 # Inheriting nn.Module provides the framework to define custom models
 # We would need to define the forward method explicitly to specify how the input flows through the network
-class VAE_AttentionBlock(nn.Module):
-    def __init__(self, channels: int):
-        super().__init__()
-
-        self.groupNorm = nn.GroupNorm(32, channels)
-        self.attention = SelfAttention(1, channels)
-    
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """
-        Args: 
-             x: Input tensor to the network (Batch, Features, Height, Width)
-        """
-
-
-
-
 class VAE_ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
@@ -67,3 +51,29 @@ class VAE_ResidualBlock(nn.Module):
             # Allows them to be added together
             # Helps mitigate the vanishing gradient problem
         return x + self.residual_layer(residue)
+
+class VAE_AttentionBlock(nn.Module):
+    def __init__(self, channels: int):
+        super().__init__()
+
+        self.groupNorm = nn.GroupNorm(32, channels)
+        self.attention = SelfAttention(1, channels)
+    
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args: 
+             x: Input tensor to the network (Batch, Features, Height, Width)
+        """
+
+        residue = x
+
+        b, c, h, w = x.shape
+
+        # Do the self attention between all the pixels of the image
+
+        # Reshape the tensor without changing its data, preparing the tensor for attention mechanisms
+        # (Batch, Features, Height, Width) -> (Batch, Features, Height * Width)
+        x = x.view(b, c, h * w)
+
+        # (Batch, Features, Height * Width) -> (Batch, Height * Width, Features)
+        x = x.transpose(-1, -2)
