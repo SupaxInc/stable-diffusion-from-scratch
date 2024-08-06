@@ -452,9 +452,51 @@ Inpainting is a specialized task in image generation that allows for selective m
    - This ensures a smooth transition between the original and inpainted regions.
 
 The inpainting process allows for targeted modification of specific image areas while maintaining consistency with the original image. The use of self-attention and cross-attention in the U-Net enables the model to balance preserving relevant aspects of the original image while incorporating changes based on the text prompt and mask, resulting in coherent and contextually appropriate inpainting. The scheduler's role is crucial in orchestrating this process, managing the denoising steps, and ensuring a smooth transition between the original and inpainted areas.
+<br><br>
 
+## Layers
 
+### Layer Normalization
+![layer-normalization](images/layer-normalization.png) 
 
+***What is normalization?*** Each layer of a deep neural network produces some output that is fed into the next layer (see examples of the Sequential modules). If the output of a layer is varying in nature, for example, a layer produces an output between 0 and 1 but the next step is 3 and 5, it has changes in distributions. This ends up pushing the output of the next layer to a new distribution which makes the loss function oscillate between differing distributions. This makes the training slower.
+
+To solve this problem, we normalize the values before feeding them into the next layer so that each layer always sees the same distribution of data. You can see in the picture above, we have an input that has a batch of 10 items and 3 features. The layer normalization is the green block which calculates the mean (μ) and variance (σ²) over the distribution of features and then normalizes the value using the following formula:
+
+It is good to note that batch and layer normalization are different as one uses columns (features) and the other uses rows (items).
+
+<pre>
+y = (x - E[x]) / sqrt(Var[x] + ε) * γ + β
+</pre>
+where:
+- `x` is the input value.
+- `E[x]` is the mean of the input values.
+- `Var[x]` is the variance of the input values.
+- `ε` is a small constant added for numerical stability.
+- `γ` and `β` are learnable parameters that allow the model to scale and shift the normalized values.
+<br>
+
+---
+
+### Group Normalization
+![group-normalization](images/group-normalization.png)
+
+Group normalization is a technique used to stabilize and accelerate the training of deep neural networks. It is similar to layer normalization, but instead of normalizing each feature independently (a column per 1 feature), it groups multiple features together and normalizes them within each group. 
+
+For example, if we have 4 features and group them into 2 groups, features 1 and 2 would be in one group, and features 3 and 4 would be in another group. This results in 2 means and 2 variances, one for each group. The normalization is then performed within each group using the following formula:
+
+<pre>
+y = (x - E[x_group]) / sqrt(Var[x_group] + ε) * γ + β
+</pre>
+
+where:
+- `x` is the input value.
+- `E[x_group]` is the mean of the input values within the group.
+- `Var[x_group]` is the variance of the input values within the group.
+- `ε` is a small constant added for numerical stability.
+- `γ` and `β` are learnable parameters that allow the model to scale and shift the normalized values.
+
+Group normalization is particularly useful in scenarios where batch sizes are small, as it does not rely on batch statistics. In the VAE, we use group normalization modules within the attention and residual blocks to ensure stable and efficient training.
 
 <br><br><br>
 # Process Overview of Stable Diffusion

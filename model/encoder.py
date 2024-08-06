@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from decoder import VAE_AttentionBlock, VAE_ResidualBlock
 
+# Inheriting from Sequential sequences other modules in the order that they are added.
+# The forward method applies each module in sequence
 class VAE_Encoder(nn.Sequential):
     def __init__(self):
         # Begin with initial image and keep decreasing its resolution but increasing the features
