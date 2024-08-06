@@ -52,6 +52,8 @@ class VAE_Encoder(nn.Sequential):
     
     def forward(self, x: torch.Tensor, noise: torch.Tensor) -> torch.Tensor:
         """
+        Sample from the latent space of the encoder.
+        
         Args: 
              x:     Input tensor to the network (Batch, Channel, Height, Width)
              noise: Sample noise added to the network (Batch, Channel, Height/8, Width/8)
