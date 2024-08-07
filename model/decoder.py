@@ -66,7 +66,6 @@ class VAE_AttentionBlock(nn.Module):
         """
 
         residue = x
-
         b, c, h, w = x.shape
 
         # Do the self attention between all the pixels of the image
@@ -75,5 +74,20 @@ class VAE_AttentionBlock(nn.Module):
         # (Batch, Features, Height, Width) -> (Batch, Features, Height * Width)
         x = x.view(b, c, h * w)
 
+        # Tranposing is necessary for attention as each pixel has its own embedding which are the features 
+        # and it helps relates the pixels to each other
         # (Batch, Features, Height * Width) -> (Batch, Height * Width, Features)
         x = x.transpose(-1, -2)
+
+        # (Batch, Height * Width, Features) -> (Batch, Height * Width, Features)
+        x = self.attention(x)
+
+        # (Batch, Height * Width, Features) -> (Batch, Features, Height * Width)
+        x = x.transpose(-1, -2)
+
+        # (Batch, Features, Height * Width) -> (Batch, Features, Height, Width)
+        x = x.view(b, c, h, w)
+
+        return x + residue
+
+        
