@@ -517,6 +517,43 @@ where:
 - `γ` and `β` are learnable parameters that allow the model to scale and shift the normalized values.
 
 Group normalization is particularly useful in scenarios where batch sizes are small, as it does not rely on batch statistics. In the VAE, we use group normalization modules within the attention and residual blocks to ensure stable and efficient training.
+<br>
+
+---
+
+### Self Attention
+![self-attention](images/self-attention.png)
+
+Self Attention in transformers allows the model to focus on different parts of the input sequence, understanding the relationships between tokens. For images, self attention helps the model to consider the relationships between different pixels as each pixel has its own embedding (the features) which help capture long-range dependencies and enhances the contextual understanding of the image.
+
+Let's break down the process shown in the image above step-by-step:
+
+1. **Input Sequence**: We start with an input sequence where each token (or pixel in the case of images) has an embedding of size d<sub>model</sub>.
+
+2. **Transform to Queries, Keys, and Values**: 
+   - Each token embedding is transformed into three different vectors: Query (Q), Key (K), and Value (V).
+   - This transformation is done by multiplying the token embeddings with three different parameter matrices (W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>).
+
+3. **Splitting into Multiple Heads**:
+   - The Q, K, and V vectors are split into multiple heads. This means the d<sub>model</sub> dimensions are divided into smaller dimensions (d<sub>k</sub> = d<sub>model</sub> / h, where h is the number of heads).
+   - This allows the model to focus on different parts of the input sequence simultaneously.
+
+4. **Calculating Attention for Each Head**:
+   - For each head, we calculate the attention scores using the formula: 
+     <pre>
+     Attention(Q, K, V) = softmax((Q * K<sup>T</sup>) / √d<sub>k</sub>) * V
+     </pre>
+   - This formula helps determine how much focus each token should have on every other token in the sequence.
+
+5. **Concatenating Heads**:
+   - The outputs from all the heads are concatenated back together. This means we combine the smaller dimension outputs (d<sub>k</sub>) from each head into the original dimension size (d<sub>model</sub>).
+
+6. **Final Linear Transformation**:
+   - The concatenated output is then multiplied by another parameter matrix (W<sub>O</sub>) to produce the final output of the multi-head attention.
+   - This step ensures that the combined information from all heads is transformed back into the desired output format.
+
+In summary, self attention allows the model to weigh the importance of different tokens (or pixels) in the input sequence, enabling it to capture complex relationships and dependencies. The use of multiple heads allows the model to focus on different aspects of the input simultaneously, enhancing its ability to understand and generate contextually rich outputs.
+
 
 <br><br><br>
 # Process Overview of Stable Diffusion
