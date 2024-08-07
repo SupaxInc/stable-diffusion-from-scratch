@@ -532,7 +532,7 @@ Let's break down the process shown in the image above step-by-step:
 
 2. **Transform to Queries, Keys, and Values**: 
    - Each token embedding is transformed into three different vectors: Query (Q), Key (K), and Value (V).
-   - This transformation is done by multiplying the token embeddings with three different parameter matrices (W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>).
+   - This transformation is done by multiplying the token (or pixel) embeddings with three different parameter matrices (W<sub>Q</sub>, W<sub>K</sub>, W<sub>V</sub>).
 
 3. **Splitting into Multiple Heads**:
    - The Q, K, and V vectors are split into multiple heads. This means the d<sub>model</sub> dimensions are divided into smaller dimensions (d<sub>k</sub> = d<sub>model</sub> / h, where h is the number of heads).
@@ -553,6 +553,7 @@ Let's break down the process shown in the image above step-by-step:
    - This step ensures that the combined information from all heads is transformed back into the desired output format.
 
 In summary, self attention allows the model to weigh the importance of different tokens (or pixels) in the input sequence, enabling it to capture complex relationships and dependencies. The use of multiple heads allows the model to focus on different aspects of the input simultaneously, enhancing its ability to understand and generate contextually rich outputs.
+
 
 
 <br><br><br>
