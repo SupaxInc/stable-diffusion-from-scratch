@@ -43,7 +43,7 @@ class SelfAttention(nn.Module):
         3. Compute attention scores between query and key.
         4. Apply causal mask if specified.
         5. Compute attention weights using softmax.
-        6. Apply attention weights to values.
+        6. Apply attention weights to values vector (V').
         7. Concatenate multi-head outputs.
         8. Project concatenated output to final dimension.
         """
@@ -90,19 +90,26 @@ class SelfAttention(nn.Module):
 
         # softmax((Q * KT) / √dk)
         # 5: Compute the current calculated attention weights to softmax
-
-        # (Batch, Num Heads, Seq_Len, Seq_Len)
+            # (Batch, Num Heads, Seq_Len, Seq_Len)
         weight = F.softmax(weight, dim=-1) # Apply softmax along the last dimension (seq len)
 
-        # (Batch, Num Heads, Seq_Len, Seq_Len) @ (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Num Heads, Seq_Len, Dim / Num Heads)
+        # 6: Applying attention weights to values vector (V')
+            # (Batch, Num Heads, Seq_Len, Seq_Len) @ (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Num Heads, Seq_Len, Dim / Num Heads)
         output = weight @ v
 
-        # (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Seq_Len, Num Heads, Dim / Num Heads)
+        # Prepare for concatenation by moving sequence length before number of heads
+            # (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Seq_Len, Num Heads, Dim / Num Heads)
         output = output.transpose(1,2)
 
+        # 7: Concatenating the multi-head attention results (the H in the formula with shape seq, H * dk)
+        # Where the concatenation occurs. Reshaping and keeping tensor data to combine results from all heads.
+        # Flattens the last two dimensions (Num_Heads and Dim / Num_Heads) into a single dimension (Dim) effectively concatenating all heads for each position.
+            # (Batch, Seq_Len, Num Heads, Dim / Num Heads) -> (Batch, Seq_Len, Dim)
         output = output.reshape(input_shape)
 
+        # 8. Project concatenated output to final dimension. Transforming the concatenated outputs with matrix multiplication with WO to get MH-A result
+            # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         output = self.out_proj(output)
 
-        # (Batch, Seq_Len, Dim)
+        # (Batch, Seq_Len, Dim (d_embed))
         return output
