@@ -90,6 +90,8 @@ class VAE_Encoder(nn.Sequential):
         x = mean + stdev * noise
 
         # Scale output by a constant
+        # TODO: Create a constant file for this
         x *= 0.18215
 
+        # TODO: Add what the output shape is here, also add to the python doc args
         return x
