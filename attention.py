@@ -90,7 +90,19 @@ class SelfAttention(nn.Module):
 
         # softmax((Q * KT) / √dk)
         # 5: Compute the current calculated attention weights to softmax
-        weight = F.softmax(weight, dim=-1)
+
+        # (Batch, Num Heads, Seq_Len, Seq_Len)
+        weight = F.softmax(weight, dim=-1) # Apply softmax along the last dimension (seq len)
+
+        # (Batch, Num Heads, Seq_Len, Seq_Len) @ (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Num Heads, Seq_Len, Dim / Num Heads)
         output = weight @ v
 
-        
+        # (Batch, Num Heads, Seq_Len, Dim / Num Heads) -> (Batch, Seq_Len, Num Heads, Dim / Num Heads)
+        output = output.transpose(1,2)
+
+        output = output.reshape(input_shape)
+
+        output = self.out_proj(output)
+
+        # (Batch, Seq_Len, Dim)
+        return output
