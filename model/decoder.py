@@ -9,10 +9,10 @@ class VAE_ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
 
-        self.groupNorm1 = nn.GroupNorm(32, in_channels)
+        self.group_norm1 = nn.GroupNorm(32, in_channels)
         self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
-        self.groupNorm2 = nn.GroupNorm(32, out_channels)
+        self.group_norm2 = nn.GroupNorm(32, out_channels)
         self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
         if in_channels == out_channels:
@@ -40,10 +40,10 @@ class VAE_ResidualBlock(nn.Module):
         # Residue preserves the input tensor to be added back to the output after passing through the conv layers
         residue = x 
 
-        x = self.groupNorm1(x)
+        x = self.group_norm1(x)
         x = F.silu(x)
         x = self.conv1(x)
-        x = self.groupNorm2(x)
+        x = self.group_norm2(x)
         x = F.silu(x)
         x = self.conv2(x)
 
@@ -56,7 +56,7 @@ class VAE_AttentionBlock(nn.Module):
     def __init__(self, channels: int):
         super().__init__()
 
-        self.groupNorm = nn.GroupNorm(32, channels)
+        self.group_norm = nn.GroupNorm(32, channels)
         self.attention = SelfAttention(1, channels)
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:

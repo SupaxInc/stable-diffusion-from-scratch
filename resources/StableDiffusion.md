@@ -543,7 +543,13 @@ Let's break down the process shown in the image above step-by-step:
      <pre>
      Attention(Q, K, V) = softmax((Q * K<sup>T</sup>) / √d<sub>k</sub>) * V
      </pre>
-   - This formula helps determine how much focus each token should have on every other token in the sequence.
+   - In this formula:
+     - Q (Query) and K (Key) are matrices derived from the input embeddings.
+     - Q * K<sup>T</sup> computes the dot product between the query and key matrices, resulting in a score that represents the similarity between each pair of tokens.
+     - √d<sub>k</sub> is the square root of the dimension of the key vectors, used to scale the dot product. This scaling helps to prevent the dot product values from becoming too large, which can lead to very small gradients during training.
+     - `softmax` is applied to the scaled dot product to convert the scores into probabilities. This step ensures that the attention scores for each token sum to 1, making it easier to interpret the scores as probabilities.
+     - Finally, the resulting probabilities are multiplied by the `V` (Value) matrix. This step combines the values based on the attention scores, effectively focusing on the most relevant tokens.
+   - This formula helps determine how much focus each token should have on every other token in the sequence, allowing the model to capture relationships and dependencies between tokens.
 
 5. **Concatenating Heads**:
    - The outputs from all the heads are concatenated back together. This means we combine the smaller dimension outputs (d<sub>k</sub>) from each head into the original dimension size (d<sub>model</sub>).
