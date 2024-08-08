@@ -90,4 +90,34 @@ class VAE_AttentionBlock(nn.Module):
 
         return x + residue
 
+class VAE_Decoder(nn.Sequential):
+    def __init__(self):
+        super().__init__(
+            # Initial processing of latent representation
+            # (Batch, 4, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
+            nn.Conv2d(4, 4, kernel_size=1, padding=0),
+            # Expand channels for feature extraction
+            # (Batch, 4, Height/8, Width/8) -> (Batch, 512, Height/8, Width/8)
+            nn.Conv2d(4, 512, kernel_size=3, padding=1),
+            
+            # Series of residual blocks for deep feature processing, esuring stable gradients
+            # Maintain shape: (Batch, 512, Height/8, Width/8)
+            VAE_ResidualBlock(512, 512),
+            
+            # Apply self-attention to capture global context
+            # (Batch, 512, Height/8, Width/8) -> (Batch, 512, Height/8, Width/8)
+            VAE_AttentionBlock(512),
+            
+            # All maintain shape: (Batch, 512, Height/8, Width/8)
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            
+            # Begin upsampling process
+            # Upsampling increases the spatial dimensions of the feature maps
+            # This step is crucial in the decoder to gradually restore the original image size, scale_factor=2 doubles both the height and width of the input
+            # (Batch, 512, Height/8, Width/8) -> (Batch, 512, Height/4, Width/4)
+            nn.Upsample(scale_factor=2),
+        )
         
