@@ -100,7 +100,7 @@ class VAE_Decoder(nn.Sequential):
             # (Batch, 4, Height/8, Width/8) -> (Batch, 512, Height/8, Width/8)
             nn.Conv2d(4, 512, kernel_size=3, padding=1),
             
-            # Series of residual blocks for deep feature processing, esuring stable gradients
+            # Series of residual blocks for deep feature processing, ensuring stable gradients
             # Maintain shape: (Batch, 512, Height/8, Width/8)
             VAE_ResidualBlock(512, 512),
             
@@ -108,6 +108,7 @@ class VAE_Decoder(nn.Sequential):
             # (Batch, 512, Height/8, Width/8) -> (Batch, 512, Height/8, Width/8)
             VAE_AttentionBlock(512),
             
+            # Additional residual blocks for further processing
             # All maintain shape: (Batch, 512, Height/8, Width/8)
             VAE_ResidualBlock(512, 512),
             VAE_ResidualBlock(512, 512),
@@ -116,8 +117,54 @@ class VAE_Decoder(nn.Sequential):
             
             # Begin upsampling process
             # Upsampling increases the spatial dimensions of the feature maps
-            # This step is crucial in the decoder to gradually restore the original image size, scale_factor=2 doubles both the height and width of the input
+            # This step is crucial in the decoder to gradually restore the original image size
             # (Batch, 512, Height/8, Width/8) -> (Batch, 512, Height/4, Width/4)
             nn.Upsample(scale_factor=2),
+
+            # Maintain channel size after upsampling and process the expanded spacial dimensions
+            # (Batch, 512, Height/4, Width/4) -> (Batch, 512, Height/4, Width/4)
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+
+            # All maintain shape: (Batch, 512, Height/4, Width/4)
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+            VAE_ResidualBlock(512, 512),
+
+            # Second upsampling
+            # (Batch, 512, Height/4, Width/4) -> (Batch, 512, Height/2, Width/2)
+            nn.Upsample(scale_factor=2),
+            # Maintain channel size after upsampling
+            # (Batch, 512, Height/2, Width/2) -> (Batch, 512, Height/2, Width/2)
+            nn.Conv2d(512, 512, kernel_size=3, padding=1),
+
+            # Reduce channels and further process
+            # (Batch, 512, Height/2, Width/2) -> (Batch, 256, Height/2, Width/2)
+            VAE_ResidualBlock(512, 256),
+            # Maintain shape: (Batch, 256, Height/2, Width/2)
+            VAE_ResidualBlock(256, 256),
+            VAE_ResidualBlock(256, 256),
+
+            # Final upsampling to original image size
+            # (Batch, 256, Height/2, Width/2) -> (Batch, 256, Height, Width) 
+            nn.Upsample(scale_factor=2),
+            # Maintain channel size after upsampling
+            # (Batch, 256, Height, Width) -> (Batch, 256, Height, Width)
+            nn.Conv2d(256, 256, kernel_size=3, padding=1),
+
+            # Further reduce channels and process
+            # (Batch, 256, Height, Width) -> (Batch, 128, Height, Width)
+            VAE_ResidualBlock(256, 128),
+            # Maintain shape: (Batch, 128, Height, Width)
+            VAE_ResidualBlock(128, 128),
+            VAE_ResidualBlock(128, 128),
+
+            # Final normalization and activation
+            # (Batch, 128, Height, Width) -> (Batch, 128, Height, Width)
+            nn.GroupNorm(32, 128),
+            nn.SiLU(),
+
+            # Output layer: reduce to 3 channels for RGB image
+            # (Batch, 128, Height, Width) -> (Batch, 3, Height, Width)
+            nn.Conv2d(128, 3, kernel_size=3, padding=1),
         )
         
