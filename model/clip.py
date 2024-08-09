@@ -11,24 +11,44 @@ from attention import SelfAttention
 
 class CLIP(nn.Module):
     def __init__(self):
-        self.embedding = CLIPEmbedding(49408, 768, 77)
+        super().__init__()
+        # 1. CLIP embeddings convert tokens (which are already numbers) into dense vector representations
+        # 2. Each token is represented by a vector of size 768 (compared to 512 in original transformers)
+        # 3. The embedding layer combines token embeddings and position embeddings
+        # 4. 49408 is the vocabulary size, 768 is the embedding dimension, and 77 is the maximum sequence length
+        # 5. The resulting embeddings capture both semantic meaning and positional information of tokens
+        # TODO: Move these values to a config yaml file in the future
+        self.embeddings = CLIPEmbedding(vocab_size=49408, embed_dim=768, max_position_embeddings=77)
 
-        self.layers = nn.Module([
-            CLIPLayer(12, 768) for i in range(12)
+        # 12 layers of self-attention and feed-forward, used for processing and encoding the tokens (Nx from formula)
+        self.layers = nn.ModuleList([
+            CLIPLayer(768) for _ in range(12)
         ])
 
         self.layer_norm = nn.LayerNorm(768)
     
     def forward(self, tokens: torch.LongTensor) -> torch.FloatTensor:
+        """
+        Args:
+            tokens: Input tensor of token indices. Shape: (Batch, Seq_Len).
+                    Uses LongTensor because CLIP encoders typically work with integer token indices,
+                    where each index corresponds to a word or subword in the vocabulary.
+        
+        Returns:
+            torch.FloatTensor: Encoded representation of the input tokens. Shape: (Batch, Seq_Len, Dim).
+        """
         tokens = tokens.type(torch.long)
 
+        # Convert token indices to embeddings
         # (Batch, Seq_Len) -> (Batch, Seq_Len, Dim)
-        state = self.embedding(tokens)
+        state = self.embeddings(tokens)
 
+        # Apply multiple layers of self-attention and feed-forward networks
         for layer in self.layers:
             state = layer(state)
         
-        # (Batch, Seq_Len, Dim)
         output = self.layer_norm(state)
 
+        # Return the encoded representation
+        # (Batch, Seq_Len, Dim)
         return output
