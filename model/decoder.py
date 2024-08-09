@@ -3,8 +3,10 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention
 
-# Inheriting nn.Module provides the framework to define custom models
-# We would need to define the forward method explicitly to specify how the input flows through the network
+"""
+    Inheriting nn.Module provides the framework to define custom models
+    We would need to define the forward method explicitly to specify how the input flows through the network
+"""
 class VAE_ResidualBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super().__init__()
