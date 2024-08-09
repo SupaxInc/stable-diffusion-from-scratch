@@ -57,8 +57,11 @@ class VAE_Encoder(nn.Sequential):
         Sample from the latent space of the encoder.
         
         Args: 
-             x:     Input tensor to the network (Batch, Channel, Height, Width)
-             noise: Sample noise added to the network (Batch, Channel, Height/8, Width/8)
+            x:     Input tensor to the network (Batch, Channel, Height, Width)
+            noise: Sample noise added to the network (Batch, Channel, Height/8, Width/8)
+
+        Returns:
+            torch.Tensor: Output tensor shape (Batch, 4, Height/8, Width/8).
         """
 
         # Run each of the modules sequentially
@@ -70,28 +73,33 @@ class VAE_Encoder(nn.Sequential):
             
             x = module(x) # Apply the modules/convolutions
         
+        # At this point, x shape is (Batch, 8, Height/8, Width/8) due to output after sequential convolutions
+        
         # Latent space of the VAE are parameters of a joint distribution from a dataset and the outputs are the mean and variance
-            # The output tensor here would be based on the last layer of the modules
-        # (Batch, 8, Height, Height/8, Width/8) -> two tensors of shape (Batch, 4, Height/8, Width/8)
+        # (Batch, 8, Height/8, Width/8) -> two tensors of shape (Batch, 4, Height/8, Width/8)
         mean, log_variance = torch.chunk(x, 2, dim=1) # Splits the input tensor into 2 chunks
 
-        # (Batch, 8, Height, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
+        # (Batch, 4, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
         log_variance = torch.clamp(log_variance, -30, 20)
         variance = log_variance.exp() # Exponentiate the log variance to get the variance
 
         # Standard deviation is the sqrt of the variance
-         # (Batch, 8, Height, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
+        # (Batch, 4, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
         stdev = variance.sqrt()
 
         # Now sample from the latent space joint distribution
-            # Transform distribution Z to N that has the mean and variance (meaning sample from the distribution)
-            # Z = N(0, 1) -> N(mean, variance) = X
-            # Formula to transform normal variable to desired distribution: X = mean + stdev * z
+        # Transform distribution Z to N that has the mean and variance (meaning sample from the distribution)
+        # Z = N(0, 1) -> N(mean, variance) = X
+        # Formula to transform normal variable to desired distribution: X = mean + stdev * z
+        # noise shape is (Batch, 4, Height/8, Width/8)
+        # (Batch, 4, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
         x = mean + stdev * noise
 
-        # Scale output by a constant
-        # TODO: Create a constant file for this
+        # Scale the latent representation from: https://github.com/huggingface/diffusers/issues/437
+        # The constant 0.18215 is used to normalize the range of values in the latent space
+        # Ensuring that the decoder can properly interpret and reconstruct the image from this scaled latent space
+        # TODO: Add this constant to a config yaml file and instantiate the value through constructor
         x *= 0.18215
 
-        # TODO: Add what the output shape is here, also add to the python doc args
+        # (Batch, 4, Height/8, Width/8)
         return x

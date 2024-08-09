@@ -168,3 +168,22 @@ class VAE_Decoder(nn.Sequential):
             nn.Conv2d(128, 3, kernel_size=3, padding=1),
         )
         
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args: 
+            x: Input tensor to the network which is the output of the encoder (Batch, Features, Height/8, Width/8)
+        
+        Returns:
+            torch.Tensor: Output tensor shape (Batch, 3 Channels, Height, Width).
+        """
+
+        # Reverse the scaling of the output of the sampling done from the encoder
+        # TODO: Add this constant to a config yaml file and instantiate the value through constructor
+        x /= 0.18215
+
+        for module in self:
+            x = module(x)
+
+        # (Batch, 3, Height, Width), now an RGB image
+        return x
+        
