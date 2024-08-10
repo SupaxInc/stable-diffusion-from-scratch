@@ -3,10 +3,19 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention
 
+"""
+    Look at the Self Attention header of StableDiffusion.md, we will build CLIP similar to the transformer image on the
+    left hand side of the Self Attention picture. It begins with Positional Encoding that tells us the position of each token in a sequence
+    and it is made up of multiple layers of Attention and Feed Forwards that go one after another.
+"""
+
 class CLIPEmbedding(nn.Module):
     def __init__(self, vocab_size: int, embed_dim: int, max_position_embeddings: int):
         super().__init__()
         """
+        Creating the input layer for the CLIP encoder. Transforms raw token inputs into embeddings.
+        Preparing the data for processing through the subsequent CLIP layers.
+
         Args:
             vocab_size: The size of the vocabulary. This determines the number of unique tokens
                         that can be represented.
@@ -38,17 +47,53 @@ class CLIPEmbedding(nn.Module):
         x = self.token_embedding(tokens)
 
         # Add the positional encoding to each embedding (it is not a fixed sinusoidal function but are learnt params from the model)
-        # Helps add more comple positional relationships in the input sequences for CLIP
+        # Helps add more comple positional relationships in the input sequences in CLIP
         x += self.position_embedding
 
         # (Batch, Seq_Len, Dim)
         return x
+    
+class CLIPLayer(nn.Module):
+    def __init__(self, n_heads: int, embed_dim: int):
+        """
+        Create a CLIP layer that processes and transforms input embeddings.
 
-"""
-    Look at the Self Attention header of StableDiffusion.md, we will build CLIP similar to the transformer image on the
-    left hand side of the Self Attention picture. It begins with Positional Encoding that tells us the position of each token in a sequence
-    and it is made up of multiple layers of Attention and Feed Forwards that go one after another.
-"""
+        The layer performs the following operations:
+        1. Self-attention: Allows the model to weigh the importance of different parts of the input sequence.
+        2. Feed-forward network: Further processes the attention output, allowing for more complex transformations.
+        Both operations are wrapped with residual connections and layer normalizations, which help in training stability and information flow.
+
+        Args:
+            n_heads: Number of attention heads for the self-attention mechanism.
+            embed_dim: Dimensionality of the input embeddings.
+
+        The CLIP layer's purpose is to:
+        1. Capture complex relationships between different parts of the input (text or image).
+        2. Transform and refine the input representations through multiple such layers.
+        3. Generate rich, context-aware embeddings that can be used for various downstream tasks,
+           particularly for aligning text and image representations in a shared embedding space.
+        """
+        super().__init__()
+
+        # Layer normalization before self-attention for stable learning
+        self.layer_norm_1 = nn.LayerNorm(embed_dim)
+        
+        # Self-attention mechanism
+        self.attention = SelfAttention(n_heads, embed_dim)
+        
+        # Layer normalization before feed-forward network
+        self.layer_norm_2 = nn.LayerNorm(embed_dim)
+        
+        # Feed-forward network:
+        # First layer expands dimensionality with a scale of 4 to allow the network to learn richer representations
+        self.linear_1 = nn.Linear(embed_dim, 4 * embed_dim)
+        # Second layer projects back to original dimensionality, this compression helps in extracting the learned features
+        self.linear_2 = nn.Linear(4 * embed_dim, embed_dim)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        return x
+
+        
 class CLIP(nn.Module):
     def __init__(self):
         super().__init__()
