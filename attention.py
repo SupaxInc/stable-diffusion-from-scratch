@@ -6,6 +6,9 @@ import math
 class SelfAttention(nn.Module):
     def __init__(self, n_heads: int, d_embed: int, in_proj_bias=True, out_proj_bias=True):
         """
+        Self attention helps the model consider the relationships between different pixels (or tokens) as each pixel has its 
+        own embedding (the features) which help capture long-range dependencies and enhances the contextual understanding of the image.
+        
         Args:
             n_heads: Number of attention heads.
             d_embed: Dimension of the embedding (features/channels) for each pixel.
@@ -29,9 +32,6 @@ class SelfAttention(nn.Module):
 
     def forward(self, x: torch.Tensor, causal_mask=False) -> torch.Tensor:
         """
-        Self attention helps the model consider the relationships between different pixels (tokens) as each pixel has its 
-        own embedding (the features) which help capture long-range dependencies and enhances the contextual understanding of the image.
-        
         Args:
             x: Input tensor of shape (Batch, Sequence Length, d_embed (Dim)).
             causal_mask: Applies a causal mask to prevent attending to future pixels. 

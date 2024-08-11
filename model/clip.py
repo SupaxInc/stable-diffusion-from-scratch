@@ -56,11 +56,6 @@ class CLIPLayer(nn.Module):
         """
         Create a CLIP layer that processes and transforms input embeddings.
 
-        The layer performs the following operations:
-        1. Self-attention: Allows the model to weigh the importance of different parts of the input sequence.
-        2. Feed-forward network: Further processes the attention output, allowing for more complex transformations.
-        Both operations are wrapped with residual connections and layer normalizations, which help in training stability and information flow.
-
         Args:
             n_heads: Number of attention heads for the self-attention mechanism.
             embed_dim: Dimensionality of the input embeddings.
@@ -85,13 +80,48 @@ class CLIPLayer(nn.Module):
         # Feed-forward network:
         # First layer expands dimensionality with a scale of 4 to allow the network to learn richer representations
         self.linear_1 = nn.Linear(embed_dim, 4 * embed_dim)
+        # Activation function for non-linearity
+        self.activation = lambda x: x * torch.sigmoid(1.702 * x)  # QuickGELU activation function  for faster computation than normal GELU
         # Second layer projects back to original dimensionality, this compression helps in extracting the learned features
         self.linear_2 = nn.Linear(4 * embed_dim, embed_dim)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        The layer performs the following operations:
+        1. Self-attention: Allows the model to weigh the importance of different parts of the input sequence.
+        2. Feed-forward network: Further processes the attention output, allowing for more complex transformations.
+        Both operations are wrapped with residual connections and layer normalizations, which help in training stability and information flow.
+
+        Args:
+            x: Input vector representation embeddings that was outputted from the CLIP Embedding process (Batch, Seq_Len, Dim).
+        
+        Returns:
+            torch.Tensor: Embedding that represents the semantic meaning of the input text.
+        """
+        residue = x
+
+        # Self attention layer
+        x = self.layer_norm_1(x)
+
+        x = self.attention(x, causal_mask=True)
+
+        x += residue
+
+        # Feed forward network layer
+        residue = x
+
+        x = self.layer_norm_2(x)
+
+        x = self.linear_1(x)
+
+        x = self.activation(x)
+
+        x = self.linear_2(x)
+
+        x += residue
+
         return x
 
-        
 class CLIP(nn.Module):
     def __init__(self):
         super().__init__()

@@ -285,17 +285,20 @@ The CLIP encoder architecture, specifically the text encoder part, is based on t
 3. Transformer Layers (Nx):
    - Multiple layers of self-attention and feed-forward networks.
    - Each layer includes:
-     a. Self-Attention mechanism:
+     a. Layer Normalization:
+        - Applied before the self-attention for stable learning.
+     b. Self-Attention mechanism:
         - Processes input through multi-head attention.
         - Has a residual connection that adds the input directly to the attention output.
-     b. Layer Normalization:
-        - Applied after the residual connection for stable gradients.
-     c. Feed-Forward Network:
+     c. Layer Normalization:
+        - Applied before the feed-forward network.
+     d. Feed-Forward Network:
         - Further processes the normalized attention output.
+        - Uses QuickGELU activation function instead of normal GELU.
+        - QuickGELU (x * sigmoid(1.702 * x)) is faster to compute than standard GELU.
         - Another residual connection adds the input from before the feed-forward network.
-     d. Final Layer Normalization:
-        - Applied after the second residual connection.
    - These layers help the model capture complex relationships between words.
+   - The use of residual connections (arrows in the picture above that points to layer normalization blocks) allows for better gradient flow and easier training of deeper networks.
 
 4. Output:
    - The final layer normalization produces an embedding that represents the semantic meaning of the input text.
