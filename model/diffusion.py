@@ -85,7 +85,7 @@ class UNet_ResidualBlock(nn.Module):
         if in_channels == out_channels:
             # If the number of input channels is equal to the number of output channels, use an identity layer for the residual connection.
             # The identity layer passes the input directly to the output without any changes.
-            self.residual_layer = nn.Identity
+            self.residual_layer = nn.Identity()
         else:
             # If its different, use a 1x1 convolution to match the input channel as output channel for the residual connection.
             self.residual_layer = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
@@ -98,24 +98,41 @@ class UNet_ResidualBlock(nn.Module):
         Args:
             z: Latent representation (z) of noise generated for current timestep from encoder (Batch, 4, Height/8, Width/8).
             time_embedding: Timestep feature vector for current noise level (Batch, Dim * 4) -> (1, 1280).
+        
+        Returns:
+            torch.Tensor: The merged tensor of latent and time embedding (Batch, Out_Channels, Height, Width).
         """
 
+        # Store the input for residual connection
         residue = z
 
+        # Process the latent representation
+        # (Batch, In_Channels, Height, Width) -> (Batch, In_Channels, Height, Width)
         z = self.group_norm_feature(z)
         z = self.activation(z)
+        # (Batch, In_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
         z = self.conv_feature(z)
 
+        # Process the time embedding
+        # (Batch, 1280) -> (Batch, 1280)
         time_embedding = self.activation(time_embedding)
+        # (Batch, 1280) -> (Batch, Out_Channels)
         time_embedding = self.linear_time(time_embedding)
 
-        # Merging the latent with the time embedding
-            # Adding height and width dimension to time embedding feature vector
+        # Merge the latent with the time embedding
+        # Adding height and width dimension to time embedding feature vector
+        # (Batch, Out_Channels, Height, Width) + (Batch, Out_Channels, 1, 1) -> (Batch, Out_Channels, Height, Width)
         merged = z + time_embedding.unsqueeze(-1).unsqueeze(-1)
+        
+        # Further process the merged representation
+        # (Batch, Out_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
         merged = self.group_norm_merged(merged)
         merged = self.activation(merged)
         merged = self.conv_merged(merged)
     
+        # Apply residual connection
+        # The residual layer adapts the input dimensions if necessary (when in_channels != out_channels)
+        # (Batch, Out_Channels, Height, Width) + (Batch, Out_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
         return merged + self.residual_layer(residue)
     
 class SwitchSequential(nn.Sequential):
