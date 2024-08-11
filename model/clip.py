@@ -96,30 +96,40 @@ class CLIPLayer(nn.Module):
             x: Input vector representation embeddings that was outputted from the CLIP Embedding process (Batch, Seq_Len, Dim).
         
         Returns:
-            torch.Tensor: Embedding that represents the semantic meaning of the input text.
+            torch.Tensor: Embedding that represents the semantic meaning of the input text (Batch, Seq_Len, Dim).
         """
-        residue = x
 
         # Self attention layer
+        residue = x  # (Batch, Seq_Len, Dim)
+
+        # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x = self.layer_norm_1(x)
 
+        # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x = self.attention(x, causal_mask=True)
 
+        # (Batch, Seq_Len, Dim) + (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x += residue
 
         # Feed forward network layer
-        residue = x
+        residue = x  # (Batch, Seq_Len, Dim)
 
+        # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x = self.layer_norm_2(x)
 
+        # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, 4*Dim)
         x = self.linear_1(x)
 
+        # (Batch, Seq_Len, 4*Dim) -> (Batch, Seq_Len, 4*Dim)
         x = self.activation(x)
 
+        # (Batch, Seq_Len, 4*Dim) -> (Batch, Seq_Len, Dim)
         x = self.linear_2(x)
 
+        # (Batch, Seq_Len, Dim) + (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x += residue
 
+        # (Batch, Seq_Len, Dim)
         return x
 
 class CLIP(nn.Module):

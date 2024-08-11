@@ -33,12 +33,12 @@ class SelfAttention(nn.Module):
     def forward(self, x: torch.Tensor, causal_mask=False) -> torch.Tensor:
         """
         Args:
-            x: Input tensor of shape (Batch, Sequence Length, d_embed (Dim)).
+            x: Input tensor of shape (Batch, Seq_Len, d_embed (Dim)).
             causal_mask: Applies a causal mask to prevent attending to future pixels. 
                          This means that each pixel can only consider previous and current pixels, not future ones.
 
         Returns:
-            torch.Tensor: Output tensor after self-attention, shape (batch_size, seq_len, d_embed).
+            torch.Tensor: Output tensor after self-attention, shape (Batch, Seq_Len, d_embed (Dim)).
 
         Process:
         1. Project input to query, key, and value vectors.
