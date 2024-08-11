@@ -78,8 +78,8 @@ class UNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # Encoder path: progressively increase features and reduce spatial dimensions
-        self.encoders = nn.Module([
+        # Encoder path: Progressively increase features and reduce spatial dimensions
+        self.encoders = nn.ModuleList([
             # Initial projection: map latent space to feature space
             # (Batch, 4, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
             SwitchSequential(nn.Conv2d(4, 320, kernel_size=3, padding=1)),
@@ -108,6 +108,44 @@ class UNet(nn.Module):
             # Attention is not needed since its at its smallest spatial resolution and it helps save computation resources
             SwitchSequential(UNet_ResidualBlock(1280, 1280)),
             SwitchSequential(UNet_ResidualBlock(1280, 1280)),
+        ])
+
+        # Bottleneck path: Process the most abstract features at the lowest spatial resolution
+        # (Batch, 1280, Height/64, Width/64) -> (Batch, 1280, Height/64, Width/64)
+        self.bottleneck = SwitchSequential(
+            UNet_ResidualBlock(1280, 1280),
+            UNet_AttentionBlock(8, 160),
+            UNet_ResidualBlock(1280, 1280),
+        )
+
+        # Decoder path: Progressively decrease features and increase spatial dimensions
+        self.decoders = nn.ModuleList([
+            # Input is doubled of the output of the bottleneck due to the skip connection from the last layer of encoder path
+            # (Batch, 2560, Height/64, Width/64) -> (Batch, 1280, Height/64, Width/64)
+            SwitchSequential(UNet_ResidualBlock(2560, 1280)),
+            SwitchSequential(UNet_ResidualBlock(2560, 1280)),
+            # First upsampling: double spatial dimensions
+            # (Batch, 2560, Height/64, Width/64) -> (Batch, 1280, Height/32, Width/32)
+            SwitchSequential(UNet_ResidualBlock(2560, 1280), Upsample(1280)),
+
+            # Process and refine features
+            SwitchSequential(UNet_ResidualBlock(2560, 1280), UNet_AttentionBlock(8, 160)),
+            SwitchSequential(UNet_ResidualBlock(2560, 1280), UNet_AttentionBlock(8, 160)),
+            # Second upsampling: further increase spatial dimensions
+            # (Batch, 1920, Height/32, Width/32) -> (Batch, 1280, Height/16, Width/16)
+            SwitchSequential(UNet_ResidualBlock(1920, 1280), UNet_AttentionBlock(8, 160), Upsample(1280)),
+
+            # Decrease feature channels and apply attention
+            SwitchSequential(UNet_ResidualBlock(1920, 640), UNet_AttentionBlock(8, 80)),
+            SwitchSequential(UNet_ResidualBlock(1280, 640), UNet_AttentionBlock(8, 80)),
+            # Third upsampling: reach second highest spatial resolution
+            # (Batch, 960, Height/16, Width/16) -> (Batch, 640, Height/8, Width/8)
+            SwitchSequential(UNet_ResidualBlock(960, 640), UNet_AttentionBlock(8, 80), Upsample(640)),
+
+            # Final processing stages, no upsampling needed here as output shape is (Batch, 320, Height/8, Width/8)
+            SwitchSequential(UNet_ResidualBlock(960, 320), UNet_AttentionBlock(8, 40)),
+            SwitchSequential(UNet_ResidualBlock(640, 320), UNet_AttentionBlock(8, 40)),
+            SwitchSequential(UNet_ResidualBlock(640, 320), UNet_AttentionBlock(8, 40)),
         ])
 
 
