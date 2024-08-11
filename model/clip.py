@@ -4,9 +4,7 @@ import torch.nn.functional as F
 from attention import SelfAttention
 
 """
-    Look at the Self Attention header of StableDiffusion.md, we will build CLIP similar to the transformer image on the
-    left hand side of the Self Attention picture. It begins with Positional Encoding that tells us the position of each token in a sequence
-    and it is made up of multiple layers of Attention and Feed Forwards that go one after another.
+IMPORTANT: Only created the text encoder of the CLIP encoder. The image encoder will be handled differently.
 """
 
 class CLIPEmbedding(nn.Module):

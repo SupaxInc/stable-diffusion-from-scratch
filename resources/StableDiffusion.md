@@ -272,7 +272,7 @@ For stable diffusion, only the text encoder will be used to embed the text promp
 ### Clip Architecture
 ![clip-architecture](images/clip-architecture.png)
 
-The CLIP encoder architecture, specifically the text encoder part, is based on the Transformer architecture. It's designed to process and understand text inputs in the context of image-text relationships. Here's a simplified breakdown:
+The CLIP encoder architecture, specifically the text encoder part, is based on the Transformer architecture. It's designed to process and understand text inputs in the context of image-text relationships. Here's a breakdown from the CLIP architecture image:
 
 1. Input Layer: 
    - Receives a sequence of text tokens (words or subwords).
@@ -282,12 +282,25 @@ The CLIP encoder architecture, specifically the text encoder part, is based on t
    - Adds positional information to each token embedding.
    - This helps the model understand the order of words in the input.
 
-3. Transformer Layers:
+3. Transformer Layers (Nx):
    - Multiple layers of self-attention and feed-forward networks.
+   - Each layer includes:
+     a. Self-Attention mechanism:
+        - Processes input through multi-head attention.
+        - Has a residual connection that adds the input directly to the attention output.
+     b. Layer Normalization:
+        - Applied after the residual connection for stable gradients.
+     c. Feed-Forward Network:
+        - Further processes the normalized attention output.
+        - Another residual connection adds the input from before the feed-forward network.
+     d. Final Layer Normalization:
+        - Applied after the second residual connection.
    - These layers help the model capture complex relationships between words.
 
 4. Output:
-   - Produces a final embedding that represents the semantic meaning of the input text.
+   - The final layer normalization produces an embedding that represents the semantic meaning of the input text.
+
+The residual connections in each Transformer layer allow the model to maintain a direct path for information flow, helping to mitigate the vanishing gradient problem and enabling the training of deeper networks. They also allow the model to easily learn identity functions, which can be crucial for preserving important information throughout the network.
 
 In our Stable Diffusion setup:
 - We only use the text encoder part of CLIP.
