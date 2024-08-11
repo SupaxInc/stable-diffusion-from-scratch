@@ -51,18 +51,18 @@ class SwitchSequential(nn.Sequential):
         different inputs for every layer.
 
         Args:
-            x: Latent representation at the current noise level (Batch, Channels, Height, Width).
+            x: Latent representation (z) at the current noise level (Batch, Channels/Features, Height, Width).
             context: Text embedding from the CLIP text encoder (Batch, Seq_Len, Dim).
-            time_embedding: Embedding of the current timestep (Batch, Time_Dim).
+            time_embedding: Embedding of the current timestep representing the current noise level (Batch, Time_Dim).
 
         Returns:
-            torch.Tensor: Processed tensor with the same shape as the input x (Batch, Channels, Height, Width).
+            torch.Tensor: Processed tensor with the same shape as the input x (Batch, Channels/Features, Height, Width).
         """
 
         for layer in self:
             if isinstance(layer, UNet_AttentionBlock):
-                # Attention blocks use the context for cross-attention
-                # This allows the model to incorporate text information into the image generation process
+                # Attention blocks use the context for self and cross-attention
+                # Allows the model to incorporate spatial relationships with image and text information from prompt
                 x = layer(x, context)
             elif isinstance(layer, UNet_ResidualBlock):
                 # Residual blocks incorporate time information
@@ -78,11 +78,36 @@ class UNet(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # Encoder path
+        # Encoder path: progressively increase features and reduce spatial dimensions
         self.encoders = nn.Module([
+            # Initial projection: map latent space to feature space
+            # (Batch, 4, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
             SwitchSequential(nn.Conv2d(4, 320, kernel_size=3, padding=1)),
+            # Process and refine features
             SwitchSequential(UNet_ResidualBlock(320, 320), UNet_AttentionBlock(8, 40)),
-            
+            SwitchSequential(UNet_ResidualBlock(320, 320), UNet_AttentionBlock(8, 40)),
+
+            # First downsampling: halve spatial dimensions
+            # (Batch, 320, Height/8, Width/8) -> (Batch, 320, Height/16, Width/16)
+            SwitchSequential(nn.Conv2d(320, 320, kernel_size=3, stride=2, padding=1)),
+            # Increase feature channels and apply attention
+            SwitchSequential(UNet_ResidualBlock(320, 640), UNet_AttentionBlock(8, 80)),
+            SwitchSequential(UNet_ResidualBlock(640, 640), UNet_AttentionBlock(8, 80)),
+
+            # Second downsampling: further reduce spatial dimensions
+            # (Batch, 640, Height/16, Width/16) -> (Batch, 640, Height/32, Width/32)
+            SwitchSequential(nn.Conv2d(640, 640, kernel_size=3, stride=2, padding=1)),
+            # Double feature channels and apply attention
+            SwitchSequential(UNet_ResidualBlock(640, 1280), UNet_AttentionBlock(8, 160)),
+            SwitchSequential(UNet_ResidualBlock(1280, 1280), UNet_AttentionBlock(8, 160)),
+
+            # Final downsampling: reach lowest spatial resolution
+            # (Batch, 1280, Height/32, Width/32) -> (Batch, 1280, Height/64, Width/64)
+            SwitchSequential(nn.Conv2d(1280, 1280, kernel_size=3, stride=2, padding=1)),
+            # Maintain feature channels, focus on abstract representations which can be done with just the residual block
+            # Attention is not needed since its at its smallest spatial resolution and it helps save computation resources
+            SwitchSequential(UNet_ResidualBlock(1280, 1280)),
+            SwitchSequential(UNet_ResidualBlock(1280, 1280)),
         ])
 
 
