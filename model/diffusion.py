@@ -51,7 +51,7 @@ class Upsample(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """
         Upsample the tensor with a scale factor of 2.
-        
+
         Args:
             x: Input tensor to upsample (Batch, Features, Height, Width)
         """
@@ -59,6 +59,7 @@ class Upsample(nn.Module):
         # (Batch, Features, Height, Width) -> (Batch, Features, Height * 2, Width * 2)
         x = F.interpolate(x, scale_factor=2, mode="nearest")
 
+        # (Batch, Features, Height * 2, Width * 2)
         return self.conv(x)
 
 
@@ -92,6 +93,38 @@ class SwitchSequential(nn.Sequential):
                 # Other layers (e.g., Conv2d) only process x
                 x = layer(x)
         
+        return x
+
+class UNet_OutputLayer(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int):
+        """
+        This layer is separated from the actual UNet architecture because it's specific to the stable diffusion model. 
+        The standard UNet doesn't include this additional layer, which is used here to map features back to the latent space 
+        for the diffusion process.
+        """
+        super().__init__()
+        self.group_norm = nn.GroupNorm(32, in_channels)
+        self.activation = nn.SiLU()
+        self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Args:
+            x: Output tensor from UNet (Batch, 320, Height/8, Width/8)
+
+        Returns:
+            torch.Tensor: Predicted noise (Batch, 4, Height/8, Width/8)
+        """
+        # (Batch, 320, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
+        x = self.group_norm(x)
+
+        # (Batch, 320, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
+        x = self.activation(x)
+
+        # (Batch, 320, Height/8, Width/8) -> (Batch, 4, Height/8, Width/8)
+        x = self.conv(x)
+
+        # (Batch, 4, Height/8, Width/8)
         return x
     
 class UNet(nn.Module):
