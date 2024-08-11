@@ -7,26 +7,37 @@ class TimeEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
         super().__init__()
 
+        self.activation = nn.SiLU()  # SiLU activation (also known as Swish)
+
         # Feed forward network
         self.linear_1 = nn.Linear(embed_dim, 4 * embed_dim)
-        self.linear_2 = nn.Linear(4 * embed_dim, 4 * embed_dim) # Larger scaling factor than CLIP encoder to capture more complex temporal info
+        self.linear_2 = nn.Linear(4 * embed_dim, 4 * embed_dim)
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, t: torch.Tensor) -> torch.Tensor:
         """
+        Convert a scalar timestep that is used for the generated noisy latent into a feature vector (time embedding).
+
+        In diffusion models, each noise level (timestep) needs to be represented
+        as a vector to provide temporal information to the model. This embedding
+        allows the model to understand and differentiate between different stages
+        of the diffusion process.
+
         Args:
-            x: Input time step tensor (1, 320).
+            t: Input timestep tensor (1, 320).
         
         Returns:
-            torch.Tensor: Timestep tensor converted to a time embedding (1, 1280)
+            torch.Tensor: Time embedding (Batch, 4*embed_dim)
         """
-
-        x = self.linear_1(x)
-
-        x = F.silu(x)
-
+        # Expand dimensionality
+        x = self.linear_1(t)
+        
+        # Non-linear activation
+        x = self.activation(x)
+        
+        # Further transform
         x = self.linear_2(x)
         
-        # (1, 1280)
+        # (Batch, 4*embed_dim)
         return x
 
 class Diffusion(nn.Module):
