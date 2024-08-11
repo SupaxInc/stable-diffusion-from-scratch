@@ -5,6 +5,9 @@ from attention import SelfAttention, CrossAttention
 
 class TimeEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
+        """
+        Convert a scalar timestep that is used for the generated noisy latent into a feature vector (time embedding).
+        """
         super().__init__()
 
         self.activation = nn.SiLU()  # SiLU activation (also known as Swish)
@@ -15,8 +18,6 @@ class TimeEmbedding(nn.Module):
     
     def forward(self, t: torch.Tensor) -> torch.Tensor:
         """
-        Convert a scalar timestep that is used for the generated noisy latent into a feature vector (time embedding).
-
         In diffusion models, each noise level (timestep) needs to be represented
         as a vector to provide temporal information to the model. This embedding
         allows the model to understand and differentiate between different stages
@@ -62,7 +63,60 @@ class Upsample(nn.Module):
         # (Batch, Features, Height * 2, Width * 2)
         return self.conv(x)
 
+class UNet_ResidualBlock(nn.Module):
+    def __init__(self, in_channels: int, out_channels: int, time_embedding_features=1280):
+        """
+        Residual blocks allows us to preserve information and ensure stable gradients.
 
+        Args:
+            in_channels: Input channels of tensor that is being used.
+            out_channels: Output channels to transform the tensor to.
+            time_embedding_features: The features of the timestep when it has been converted to a feature vector (scale factor of 4).
+        """
+        super().__init__()
+        self.group_norm_feature = nn.GroupNorm(32, in_channels)
+        self.activation = nn.SiLU()
+        self.conv_feature = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.linear_time = nn.Linear(time_embedding_features, out_channels)
+
+        self.group_norm_merged = nn.GroupNorm(32, out_channels)
+        self.conv_merged = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+
+        if in_channels == out_channels:
+            # If the number of input channels is equal to the number of output channels, use an identity layer for the residual connection.
+            # The identity layer passes the input directly to the output without any changes.
+            self.residual_layer = nn.Identity
+        else:
+            # If its different, use a 1x1 convolution to match the input channel as output channel for the residual connection.
+            self.residual_layer = nn.Conv2d(in_channels, out_channels, kernel_size=1, padding=0)
+
+    def forward(self, z: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
+        """
+        Incorporate the time information with the latent to help model understand the noise level at each step of the diffusion process, 
+        allowing it to gradually denoise the image.
+
+        Args:
+            z: Latent representation (z) of noise generated for current timestep from encoder (Batch, 4, Height/8, Width/8).
+            time_embedding: Timestep feature vector for current noise level (Batch, Dim * 4) -> (1, 1280).
+        """
+
+        residue = z
+
+        z = self.group_norm_feature(z)
+        z = self.activation(z)
+        z = self.conv_feature(z)
+
+        time_embedding = self.activation(time_embedding)
+        time_embedding = self.linear_time(time_embedding)
+
+        # Merging the latent with the time embedding
+            # Adding height and width dimension to time embedding feature vector
+        merged = z + time_embedding.unsqueeze(-1).unsqueeze(-1)
+        merged = self.group_norm_merged(merged)
+        merged = self.activation(merged)
+        merged = self.conv_merged(merged)
+    
+        return merged + self.residual_layer(residue)
     
 class SwitchSequential(nn.Sequential):
     def forward(self, x: torch.Tensor, context: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
@@ -201,6 +255,7 @@ class UNet(nn.Module):
             SwitchSequential(UNet_ResidualBlock(640, 320), UNet_AttentionBlock(8, 40)),
         ])
 
+        # Final output shape: (Batch, 320, Height/8, Width/8)
 
 class Diffusion(nn.Module):
     def __init__(self):
@@ -211,6 +266,7 @@ class Diffusion(nn.Module):
 
         self.unet = UNet()
 
+        # Final layer is used to map features upsampled from UNet back to the original features for the latent space (4)
         self.final = UNet_OutputLayer(320, 4)
 
     def forward(self, latent: torch.Tensor, context: torch.Tensor, timestep: torch.Tensor) -> torch.Tensor:
