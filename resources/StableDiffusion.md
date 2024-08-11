@@ -265,7 +265,42 @@ To be able to condition and guide the denoising U-Net to an image using a prompt
 In the example above, you can see Image of *I* from 1 to N is matched with the descriptions of Text *T* from 1 to N. The matrix is built by the dot product of the Image *I* per row from 1 to N multiplied with all of the text embeddings. It is trained by a loss function that maximizes the value of the diagonal matches (blue squares) while the rest of the values are 0 (grey squares). The model will be able to learn to match the description of an image with the image itself. 
 
 For stable diffusion, only the text encoder will be used to embed the text prompt. In this case, the U-Net will use the embeddings as conditioning signals to guide the image to look like the prompt in each denoising step (see the reverse process).  
+<br>
+
+---
+
+### Clip Architecture
+![clip-architecture](images/clip-architecture.png)
+
+The CLIP encoder architecture, specifically the text encoder part, is based on the Transformer architecture. It's designed to process and understand text inputs in the context of image-text relationships. Here's a simplified breakdown:
+
+1. Input Layer: 
+   - Receives a sequence of text tokens (words or subwords).
+   - Converts these tokens into vector embeddings.
+
+2. Positional Encoding:
+   - Adds positional information to each token embedding.
+   - This helps the model understand the order of words in the input.
+
+3. Transformer Layers:
+   - Multiple layers of self-attention and feed-forward networks.
+   - These layers help the model capture complex relationships between words.
+
+4. Output:
+   - Produces a final embedding that represents the semantic meaning of the input text.
+
+In our Stable Diffusion setup:
+- We only use the text encoder part of CLIP.
+- The image encoding is handled separately by the VAE.
+- The text embeddings from CLIP are used to guide the U-Net in creating images that match the text description.
+- The U-Net uses these text embeddings as a conditioning signal during the denoising process.
+
+This separation allows for more efficient and specialized processing: CLIP handles text understanding, VAE manages image encoding, and the U-Net focuses on the guided image generation process.
+
+# TODO: Textual Inversion (how it can be fine tuned)
+
 <br><br>
+
 
 ## Auto Encoder
 ![autoencoder](images/autoencoder.png)
