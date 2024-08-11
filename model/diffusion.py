@@ -28,17 +28,63 @@ class TimeEmbedding(nn.Module):
         Returns:
             torch.Tensor: Time embedding (Batch, 4*embed_dim)
         """
-        # Expand dimensionality
+        # Expand dimensionality of the time step
+        # (1, 320) -> (1, 1280)
         x = self.linear_1(t)
         
         # Non-linear activation
+        # (1, 1280) -> (1, 1280)
         x = self.activation(x)
         
         # Further transform
+        # (1, 1280) -> (1, 1280)
         x = self.linear_2(x)
         
-        # (Batch, 4*embed_dim)
+        # (1, 1280)
         return x
+    
+class SwitchSequential(nn.Sequential):
+    def forward(self, x: torch.Tensor, context: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
+        """
+        A custom Sequential module to allow flexibility of handling different types of layers in a U-Net architecture.
+        The UNet will have multiple inputs to guide the diffusion model to the correct image. We need a way to process these
+        different inputs for every layer.
+
+        Args:
+            x: Latent representation at the current noise level (Batch, Channels, Height, Width).
+            context: Text embedding from the CLIP text encoder (Batch, Seq_Len, Dim).
+            time_embedding: Embedding of the current timestep (Batch, Time_Dim).
+
+        Returns:
+            torch.Tensor: Processed tensor with the same shape as the input x (Batch, Channels, Height, Width).
+        """
+
+        for layer in self:
+            if isinstance(layer, UNet_AttentionBlock):
+                # Attention blocks use the context for cross-attention
+                # This allows the model to incorporate text information into the image generation process
+                x = layer(x, context)
+            elif isinstance(layer, UNet_ResidualBlock):
+                # Residual blocks incorporate time information
+                # Helps model understand the noise level at each step of the diffusion process, allowing it to gradually denoise the image
+                x = layer(x, time_embedding)
+            else:
+                # Other layers (e.g., Conv2d) only process x
+                x = layer(x)
+        
+        return x
+    
+class UNet(nn.Module):
+    def __init__(self):
+        super().__init__()
+
+        # Encoder path
+        self.encoders = nn.Module([
+            SwitchSequential(nn.Conv2d(4, 320, kernel_size=3, padding=1)),
+            SwitchSequential(UNet_ResidualBlock(320, 320), UNet_AttentionBlock(8, 40)),
+            
+        ])
+
 
 class Diffusion(nn.Module):
     def __init__(self):
