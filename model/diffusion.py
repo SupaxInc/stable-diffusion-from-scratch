@@ -43,6 +43,26 @@ class TimeEmbedding(nn.Module):
         # (1, 1280)
         return x
     
+class Upsample(nn.Module):
+    def __init__(self, channels: int):
+        super().__init__()
+        self.conv = nn.Conv2d(channels, channels, kernel_size=3, padding=1)
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        """
+        Upsample the tensor with a scale factor of 2.
+        
+        Args:
+            x: Input tensor to upsample (Batch, Features, Height, Width)
+        """
+
+        # (Batch, Features, Height, Width) -> (Batch, Features, Height * 2, Width * 2)
+        x = F.interpolate(x, scale_factor=2, mode="nearest")
+
+        return self.conv(x)
+
+
+    
 class SwitchSequential(nn.Sequential):
     def forward(self, x: torch.Tensor, context: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
         """
@@ -124,14 +144,14 @@ class UNet(nn.Module):
             # (Batch, 2560, Height/64, Width/64) -> (Batch, 1280, Height/64, Width/64)
             SwitchSequential(UNet_ResidualBlock(2560, 1280)),
             SwitchSequential(UNet_ResidualBlock(2560, 1280)),
-            # First upsampling: double spatial dimensions
+            # First upsampling: double spatial dimensions and decrease features
             # (Batch, 2560, Height/64, Width/64) -> (Batch, 1280, Height/32, Width/32)
             SwitchSequential(UNet_ResidualBlock(2560, 1280), Upsample(1280)),
 
             # Process and refine features
             SwitchSequential(UNet_ResidualBlock(2560, 1280), UNet_AttentionBlock(8, 160)),
             SwitchSequential(UNet_ResidualBlock(2560, 1280), UNet_AttentionBlock(8, 160)),
-            # Second upsampling: further increase spatial dimensions
+            # Second upsampling: further increase spatial dimensions and decrease features
             # (Batch, 1920, Height/32, Width/32) -> (Batch, 1280, Height/16, Width/16)
             SwitchSequential(UNet_ResidualBlock(1920, 1280), UNet_AttentionBlock(8, 160), Upsample(1280)),
 
