@@ -3,6 +3,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from attention import SelfAttention, CrossAttention
 
+# TODO: Create config.yaml file for default values
+
 class TimeEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
         """
@@ -66,7 +68,9 @@ class Upsample(nn.Module):
 class UNet_ResidualBlock(nn.Module):
     def __init__(self, in_channels: int, out_channels: int, time_embedding_features=1280):
         """
-        Residual blocks allows us to preserve information and ensure stable gradients.
+        Residual blocks allows us to preserve information and ensure stable gradients. For UNet it gives us the ability
+        to incorporate the the time information with the latent to help model understand the noise level at each step of the diffusion process, 
+        allowing it to gradually denoise the image.
 
         Args:
             in_channels: Input channels of tensor that is being used.
@@ -92,9 +96,6 @@ class UNet_ResidualBlock(nn.Module):
 
     def forward(self, z: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
         """
-        Incorporate the time information with the latent to help model understand the noise level at each step of the diffusion process, 
-        allowing it to gradually denoise the image.
-
         Args:
             z: Latent representation (z) of noise generated for current timestep from encoder (Batch, 4, Height/8, Width/8).
             time_embedding: Timestep feature vector for current noise level (Batch, Dim * 4) -> (1, 1280).
@@ -135,6 +136,110 @@ class UNet_ResidualBlock(nn.Module):
         # (Batch, Out_Channels, Height, Width) + (Batch, Out_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
         return merged + self.residual_layer(residue)
     
+class UNet_AttentionBlock(nn.Module):
+    def __init__(self, n_heads: int, embed_dim: int, context_dim: int = 768):
+        """
+        This block combines self-attention and cross-attention mechanisms to process
+        latent representations and incorporate context information (e.g., text embeddings).
+        It's a crucial component in allowing the model to understand spatial relationships
+        within the image and align them with textual descriptions.
+
+        Args:
+            n_heads: Number of attention heads.
+            embed_dim: Dimension of the model (per head).
+            context_dim: Dimension of the context vector in this case the CLIPEmbedding. 
+                            Defaults to 768 based on clip encoder in clip.py.
+
+        The block consists of:
+        1. Self-attention: Allows the model to relate different parts of the image to each other.
+        2. Cross-attention: Enables the model to incorporate external context (e.g., text embeddings from CLIP text encoder).
+        3. Feed-forward network: Further processes the attention outputs.
+        """
+        super().__init__()
+        self.channels = n_heads * embed_dim
+
+        # Initial normalization and projection
+        self.group_norm = nn.GroupNorm(32, self.channels, eps=1e-6)
+        self.conv_input = nn.Conv2d(self.channels, self.channels, kernel_size=1, padding=0)
+
+        # Self-attention block
+        self.layer_norm_1 = nn.LayerNorm(self.channels)
+        self.self_attention = SelfAttention(n_heads, self.channels, in_proj_bias=False)
+
+        # Cross-attention block
+        self.layer_norm_2 = nn.LayerNorm(self.channels)
+        self.cross_attention = CrossAttention(n_heads, self.channels, context_dim, in_proj_bias=False)
+
+        # Feed-forward network (FFN) block using GEGLU activation function (Gated Element-wise Linear Unit)
+        self.layer_norm_3 = nn.LayerNorm(self.channels)
+        # 1) Expand dimensionality by factor of 4 and split into two halves:
+        #    - One half for linear transformation
+        #    - One half for gating mechanism
+        self.linear_geglu_1 = nn.Linear(self.channels, 4 * self.channels * 2)
+        # GELU activation function for non-linearity
+        self.activation = nn.GELU()
+        # 2) Bring the dimension back to original size
+        # This compression helps in extracting the most important features learned
+        self.linear_geglu_2 = nn.Linear(4 * self.channels, self.channels)
+
+        # Output projection
+        self.conv_output = nn.Conv2d(self.channels, self.channels, kernel_size=1, padding=0)
+
+    def forward(self, x: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
+        """
+        Forward pass of the attention block imilar to a Transformer architecture.
+
+        Args:
+            x: Latent of shape (Batch, Features, Height, Width).
+            context: Text embeddings (CLIPEmbedding) of shape (Batch, Seq_Len, Dim).
+
+        Returns:
+            torch.Tensor: Processed tensor of the same shape as the input.
+        """
+
+        residue_long = x # Long residual since it will be applied to the end
+
+        x = self.group_norm(x)
+        
+        x = self.conv_input(x)
+
+        b, c, h, w = x.shape
+
+        # (Batch, Features, Height, Width) -> (Batch, Features, Height * Width)
+        x = x.view((b, c, h*w))
+        # (Batch, Features, Height * Width) -> (Batch, Height * Width, Features)
+        x = x.transpose(-1, -2)
+
+        # Normalization + Self Attention with skip connection
+        residue_short = x
+
+        x = self.layer_norm_1(x)
+        self.self_attention(x)
+        x += residue_short
+
+        # Normalization + Cross Attention with skip connection
+        residue_short = x
+
+        x = self.layer_norm_2(x)
+        self.cross_attention(x, context)
+        x += residue_short
+
+        # Normalization + Feed-forward network using GEGLU with skip connection
+        residue_short = x
+
+        x = self.layer_norm_3(x)
+        x, gate = self.linear_geglu_1(x).chunk(2, dim=-1)
+        x = x * self.activation(gate)
+        x = self.linear_geglu_2(x)
+        x += residue_short
+
+        # Move back to original input tensor shape
+        # (Batch, Height * Width, Features) -> (Batch, Features, Height * Width)
+        x = x.transpose(-1, -2)
+        x = x.view((b, c, h, w))
+
+        return self.conv_output(x) + residue_long
+
 class SwitchSequential(nn.Sequential):
     def forward(self, x: torch.Tensor, context: torch.Tensor, time_embedding: torch.Tensor) -> torch.Tensor:
         """
@@ -144,7 +249,7 @@ class SwitchSequential(nn.Sequential):
 
         Args:
             x: Latent representation (z) at the current noise level (Batch, Channels/Features, Height, Width).
-            context: Text embedding from the CLIP text encoder (Batch, Seq_Len, Dim).
+            context: Text embedding from the CLIP text encoder, CLIPEmbedding (Batch, Seq_Len, Dim).
             time_embedding: Embedding of the current timestep representing the current noise level (Batch, Time_Dim).
 
         Returns:
@@ -157,8 +262,7 @@ class SwitchSequential(nn.Sequential):
                 # Allows the model to incorporate spatial relationships with image and text information from prompt
                 x = layer(x, context)
             elif isinstance(layer, UNet_ResidualBlock):
-                # Residual blocks incorporate time information
-                # Helps model understand the noise level at each step of the diffusion process, allowing it to gradually denoise the image
+                # Residual blocks incorporate time information with the noisy latent representation
                 x = layer(x, time_embedding)
             else:
                 # Other layers (e.g., Conv2d) only process x

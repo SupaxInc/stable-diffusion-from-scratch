@@ -5,6 +5,7 @@ from attention import SelfAttention
 
 """
 IMPORTANT: Only created the text encoder of the CLIP encoder. The image encoder will be handled differently.
+The architecture is very similar to the original Transformers architecture.
 """
 
 class CLIPEmbedding(nn.Module):
@@ -81,7 +82,7 @@ class CLIPLayer(nn.Module):
         # First layer expands dimensionality with a scale of 4 to allow the network to learn richer representations
         self.linear_1 = nn.Linear(embed_dim, 4 * embed_dim)
         # Activation function for non-linearity
-        self.activation = lambda x: x * torch.sigmoid(1.702 * x)  # QuickGELU activation function  for faster computation than normal GELU
+        self.activation = lambda x: x * torch.sigmoid(1.702 * x)  # QuickGELU activation function for faster computation than normal GELU
         # Second layer projects back to original dimensionality, this compression helps in extracting the learned features
         self.linear_2 = nn.Linear(4 * embed_dim, embed_dim)
 
