@@ -194,50 +194,56 @@ class UNet_AttentionBlock(nn.Module):
             context: Text embeddings (CLIPEmbedding) of shape (Batch, Seq_Len, Dim).
 
         Returns:
-            torch.Tensor: Processed tensor of the same shape as the input.
+            torch.Tensor: Processed tensor (Batch, Features, Height, Width).
         """
 
-        residue_long = x # Long residual since it will be applied to the end
+        # Long residual connection: Preserves the original input information
+        # This helps in maintaining the overall structure and low-level features of the image
+        residue_long = x  # Will be added back at the very end of the block
 
         x = self.group_norm(x)
-        
         x = self.conv_input(x)
 
         b, c, h, w = x.shape
 
+        # Reshape for attention operations
         # (Batch, Features, Height, Width) -> (Batch, Features, Height * Width)
         x = x.view((b, c, h*w))
         # (Batch, Features, Height * Width) -> (Batch, Height * Width, Features)
         x = x.transpose(-1, -2)
 
         # Normalization + Self Attention with skip connection
-        residue_short = x
+        residue_short = x # Short residual: Helps in gradient flow and preserves local information
 
         x = self.layer_norm_1(x)
         self.self_attention(x)
-        x += residue_short
+        x += residue_short  # Skip connection: Allows the model to bypass self-attention if necessary
 
-        # Normalization + Cross Attention with skip connection
-        residue_short = x
+        # # Normalization + Cross Attention with skip connection
+        residue_short = x # Another short residual: Enables the model to selectively use text context
 
         x = self.layer_norm_2(x)
         self.cross_attention(x, context)
-        x += residue_short
+        x += residue_short  # Skip connection: Model can choose to ignore text context if not relevant
 
         # Normalization + Feed-forward network using GEGLU with skip connection
-        residue_short = x
+        residue_short = x # Final short residual: Allows for complex non-linear transformations while preserving input
 
         x = self.layer_norm_3(x)
         x, gate = self.linear_geglu_1(x).chunk(2, dim=-1)
         x = x * self.activation(gate)
         x = self.linear_geglu_2(x)
-        x += residue_short
+        x += residue_short  # Skip connection: Enables the model to bypass FFN if simpler transformation is needed
 
-        # Move back to original input tensor shape
+        # Reshape back to original tensor shape
         # (Batch, Height * Width, Features) -> (Batch, Features, Height * Width)
         x = x.transpose(-1, -2)
+        # (Batch, Features, Height * Width) -> (Batch, Features, Height, Width)
         x = x.view((b, c, h, w))
 
+        # Final output with long residual connection
+        # This allows the model to effectively combine the transformed features with the original input
+        # Crucial for preserving spatial information and enabling fine-grained control in the diffusion process
         return self.conv_output(x) + residue_long
 
 class SwitchSequential(nn.Sequential):
