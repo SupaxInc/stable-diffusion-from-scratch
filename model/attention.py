@@ -165,7 +165,7 @@ class CrossAttention(nn.Module):
         batch, seq_len, d_embed = input_shape
 
         # New shape to transform the query, key, and values
-        iterim_shape = (batch, -1, self.n_heads, self.d_head)
+        interim_shape = (batch, -1, self.n_heads, self.d_head)
 
         # Multiply query by WQ matrix using the latent
         q = self.q_proj(x)
@@ -173,4 +173,26 @@ class CrossAttention(nn.Module):
         k = self.k_proj(y)
         v = self.v_proj(y)
 
-        # Split each number of heads
+        # Split the vectors into the number of heads Q1, Q2... K1, K2.. V1, V2, etc by using d_head from interim shape
+            # Each (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Num Heads, Dim / Num Heads) -> (Batch, Num Heads, Seq_Len, Dim / Num Heads)
+        q = q.view(interim_shape).transpose(1, 2)
+        k = k.view(interim_shape).transpose(1, 2)
+        v = v.view(interim_shape).transpose(1, 2)
+
+        # No causal mask since we are just trying to relate the prompt with the pixels
+        # A token can essentially watch any pixel
+
+        weight = q @ k.transpose(-1, -2)
+        weight /= math.sqrt(self.d_head)
+
+        weight = F.softmax(weight, dim=-1)
+
+        output = weight @ v
+
+        output = output.transpose(1,2).contiguous()
+
+        output = output.view(input_shape)
+
+        output = self.out_proj(output)
+
+        return output
