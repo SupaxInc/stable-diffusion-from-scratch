@@ -186,11 +186,12 @@ class CrossAttention(nn.Module):
         v = self.v_proj(y)  # (Batch, Seq_Len_KV, Dim_Q)
 
         # 2. Reshape q, k, v for multi-head attention
+        # -1 is a placeholder for Seq_len so it can work with varying sequence lengths
         # Splitting the vectors into the number of heads Q1, Q2... K1, K2.. V1, V2, etc by using d_head from interim shape
         # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Num_Heads, Dim / Num_Heads) -> (Batch, Num_Heads, Seq_Len, Dim / Num_Heads)
-        q = q.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
-        k = k.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
-        v = v.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
+        q = q.view((batch, -1, self.n_heads, self.d_head)).transpose(1, 2)
+        k = k.view((batch, -1, self.n_heads, self.d_head)).transpose(1, 2)
+        v = v.view((batch, -1, self.n_heads, self.d_head)).transpose(1, 2)
 
         # 3. Compute attention scores
         # (Batch, Num_Heads, Seq_Len_Q, Dim / Num_Heads) @ (Batch, Num_Heads, Dim / Num_Heads, Seq_Len_KV)
