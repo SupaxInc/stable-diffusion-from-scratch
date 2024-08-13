@@ -154,45 +154,73 @@ class CrossAttention(nn.Module):
     
     def forward(self, x: torch.Tensor, y: torch.Tensor) -> torch.Tensor:
         """
-        In cross attention, the latent is the query and the key/value pair is the CLIP Embedding.
+        In cross attention, the query comes from one source (x) while the key and value come from another (y).
+        This differs from self-attention where Q, K, and V all come from the same source.
 
         Args:
-            x: Latent of the noisy image (Batch, Seq_Len_Q, Dim_Q).
-            y: Context tensor of CLIPEmbedding (Batch, Seq_Len_KV, Dim_KV) = (Batch, 77, 768)
+            x: Latent representation of the noisy image (Batch, Seq_Len_Q, Dim_Q).
+            y: Context tensor, typically CLIP text embeddings (Batch, Seq_Len_KV, Dim_KV) = (Batch, 77, 768)
+
+        Returns:
+            torch.Tensor: Attended output (Batch, Seq_Len_Q, Dim_Q)
+
+        Process:
+            1. Project inputs to query, key, and value vectors.
+            2. Split vectors into multiple heads.
+            3. Compute attention scores between query and key.
+            4. Scale attention scores.
+            5. Compute attention weights using softmax.
+            6. Apply attention weights to values vector (V').
+            7. Concatenate multi-head outputs.
+            8. Project concatenated output to final dimension.
         """
 
+        # Save input shape for later reshaping
         input_shape = x.shape
         batch, seq_len, d_embed = input_shape
 
-        # New shape to transform the query, key, and values
-        interim_shape = (batch, -1, self.n_heads, self.d_head)
+        # 1. Project inputs to query (WQ), key(WK), and value(WV) matrices
+        # Note: Unlike self-attention where its combined into 1 matrix, q comes from x, while k and v come from y
+        q = self.q_proj(x)  # (Batch, Seq_Len_Q, Dim_Q)
+        k = self.k_proj(y)  # (Batch, Seq_Len_KV, Dim_Q)
+        v = self.v_proj(y)  # (Batch, Seq_Len_KV, Dim_Q)
 
-        # Multiply query by WQ matrix using the latent
-        q = self.q_proj(x)
-        # Multiply k/v with WK/WV matrices using the context 
-        k = self.k_proj(y)
-        v = self.v_proj(y)
+        # 2. Reshape q, k, v for multi-head attention
+        # Splitting the vectors into the number of heads Q1, Q2... K1, K2.. V1, V2, etc by using d_head from interim shape
+        # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Num_Heads, Dim / Num_Heads) -> (Batch, Num_Heads, Seq_Len, Dim / Num_Heads)
+        q = q.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
+        k = k.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
+        v = v.view(batch, -1, self.n_heads, self.d_head).transpose(1, 2)
 
-        # Split the vectors into the number of heads Q1, Q2... K1, K2.. V1, V2, etc by using d_head from interim shape
-            # Each (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Num Heads, Dim / Num Heads) -> (Batch, Num Heads, Seq_Len, Dim / Num Heads)
-        q = q.view(interim_shape).transpose(1, 2)
-        k = k.view(interim_shape).transpose(1, 2)
-        v = v.view(interim_shape).transpose(1, 2)
+        # 3. Compute attention scores
+        # (Batch, Num_Heads, Seq_Len_Q, Dim / Num_Heads) @ (Batch, Num_Heads, Dim / Num_Heads, Seq_Len_KV)
+        # -> (Batch, Num_Heads, Seq_Len_Q, Seq_Len_KV)
+        attention_scores = q @ k.transpose(-1, -2)
 
-        # No causal mask since we are just trying to relate the prompt with the pixels
-        # A token can essentially watch any pixel
+        # 4. Scale attention scores
+        # Scaling helps to prevent the dot product values from becoming too large which can lead to very small gradients during training
+        attention_scores /= math.sqrt(self.d_head)
 
-        weight = q @ k.transpose(-1, -2)
-        weight /= math.sqrt(self.d_head)
+        # 5. Apply softmax to get attention weights
+        # Note: Unlike self-attention, no causal mask is applied here
+        # Each query position can attend to all key positions including future positions
+        attention_weights = F.softmax(attention_scores, dim=-1)
 
-        weight = F.softmax(weight, dim=-1)
+        # 6. Apply attention weights to values
+        # (Batch, Num_Heads, Seq_Len_Q, Seq_Len_KV) @ (Batch, Num_Heads, Seq_Len_KV, Dim / Num_Heads)
+        # -> (Batch, Num_Heads, Seq_Len_Q, Dim / Num_Heads)
+        output = attention_weights @ v
 
-        output = weight @ v
-
-        output = output.transpose(1,2).contiguous()
-
+        # 7. Reshape output and concatenate heads
+        # Reshape to match the query's sequence length (Seq_Len_Q) b/c the output should have the same sequence length as the input query (x)
+        # (Batch, Num_Heads, Seq_Len_Q, Dim / Num_Heads) -> (Batch, Seq_Len_Q, Num_Heads, Dim / Num_Heads)
+        output = output.transpose(1, 2).contiguous()
+        # (Batch, Seq_Len_Q, Num_Heads, Dim / Num_Heads) -> (Batch, Seq_Len_Q, Dim)
         output = output.view(input_shape)
 
+        # 8. Apply output projection
         output = self.out_proj(output)
 
+        # The output maintains the shape (Batch, Seq_Len_Q, Dim_Q) to match the input query dimensions
         return output
+    
