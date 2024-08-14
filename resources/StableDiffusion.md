@@ -610,6 +610,66 @@ Let's break down the process shown in the image above step-by-step:
    - This step ensures that the combined information from all heads is transformed back into the desired output format.
 
 In summary, self attention allows the model to weigh the importance of different tokens (or pixels) in the input sequence, enabling it to capture complex relationships and dependencies. The use of multiple heads allows the model to focus on different aspects of the input simultaneously, enhancing its ability to understand and generate contextually rich outputs.
+<br>
+
+---
+
+### Cross Attention
+
+Cross Attention is similar to Self Attention, it allows the the model to incorporate text embeddings into the image generation process. While Self Attention focuses on relationships within a single input sequence (like an image), Cross Attention enables the model to attend to a different input (context) than the one being transformed.
+
+In Stable Diffusion, Cross Attention is used to align the image generation process with the provided text prompt. Here's how it works:
+
+1. **Inputs**:
+   - `x`: Latent representation of the noisy image (Query)
+   - `y`: Context tensor, typically CLIP text embeddings (Key and Value)
+
+2. **Transformation to Queries, Keys, and Values**:
+   - In Cross Attention, Q, K, and V are separated and come from different sources:
+     - Q (Query) comes from the image latents (x)
+     - K (Key) and V (Value) come from the text embeddings (y)
+   - This separation is crucial for Transformers in cross-attention because:
+     1. It allows the model to relate different types of data (image and text in this case).
+     2. The Query (from the image) "asks questions" about the text, while the Keys and Values (from the text) provide "answers".
+   - The process works as follows:
+     1. Q determines what to focus on in the image latents.
+     2. K determines how relevant each part of the text is to the image query.
+     3. V carries the actual content from the text to be incorporated into the image representation.
+   - These transformations are done using separate projection layers:
+     ```python
+     q = self.q_proj(x)  # (Batch, Seq_Len_Q, Dim_Q)
+     k = self.k_proj(y)  # (Batch, Seq_Len_KV, Dim_Q)
+     v = self.v_proj(y)  # (Batch, Seq_Len_KV, Dim_Q)
+     ```
+   - By using separate projections, the model can learn different transformations for each component:
+     - q_proj learns how to create effective queries from image features.
+     - k_proj learns how to create keys that can match well with image queries.
+     - v_proj learns how to create values that carry useful information from the text.
+   - This separation enables the model to effectively align the image generation process with the text prompt, allowing for precise control over the generated image based on the textual description.
+
+3. **Multi-Head Splitting**:
+   - The Q, K, and V vectors are split into multiple heads, similar to Self Attention.
+   - This allows the model to focus on different aspects of the text-image relationship simultaneously.
+
+4. **Attention Calculation**:
+   - The attention scores are computed using the same formula as in Self Attention:
+     <pre>
+     Attention(Q, K, V) = softmax((Q * K<sup>T</sup>) / √d<sub>k</sub>) * V
+     </pre>
+   - However, the interpretation is different: each position in the image latents (Q) attends to all positions in the text embeddings (K and V).
+
+5. **Key Differences from Self Attention**:
+   - No causal masking is applied, as each query position can attend to all key positions, including "future" positions.
+   - The output maintains the shape of the input query (image latents), but now incorporates information from the text embeddings.
+
+6. **Output Processing**:
+   - The outputs from all heads are concatenated and projected to the final output dimension:
+     ```python
+     output = self.out_proj(concatenated_heads)
+     ```
+
+The Cross Attention mechanism allows the model to infuse the image generation process with semantic information from the text prompt, ensuring that the generated image aligns with the given description. This bidirectional flow of information between text and image domains is key to Stable Diffusion's ability to generate images that accurately reflect textual prompts.
+
 
 
 
