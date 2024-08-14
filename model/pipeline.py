@@ -33,20 +33,36 @@ def generate(prompt: str, uncond_prompt: str, input_image: str=None,
         else:
             generator.manual_seed(seed)
         
-        # Load CLIP model and place into device
         clip = models["clip"]
         clip.to_device(device)
 
         if do_cfg:
-            # Convert the prompt into tokens using the tokenizer
-            cond_tokens = tokenizer.batch_encode_plus([prompt], padding="max_length").input_ids
-            # (Batch -> Seq_Len -> Dim)
-            cond_tokens = torch.Tensor(cond_tokens, dtype=torch.long, device = device)
-            # (Batch -> Seq_Len -> Dim) -> (Batch -> Seq_Len -> Dim)
-            cond_context = clip(cond_tokens)
-            # (Batch -> Seq_Len -> Dim) -> (Batch -> Seq_Len -> Dim), size of 768
+            # Prepare to do two inferences for classifier free guidance, one for conditioned output and another for unconditioned output
 
+            # Convert the prompt into tokens using the tokenizer, if its too short fill it with paddings
+            cond_tokens = tokenizer.batch_encode_plus([prompt], padding="max_length", max_length=77).input_ids
+            # Convert input ids (tokens) to a tensor: (Batch, Seq_Len)
+            cond_tokens = torch.Tensor(cond_tokens, dtype=torch.long, device=device)
+            # Convert the tokens to embeddings: (Batch, Seq_Len) -> (Batch, Seq_Len, Dim), dim is size of 768 (from CLIP embed dims)
+            cond_context = clip(cond_tokens)
+
+            # Do the same for unconditioned output
             uncond_tokens = tokenizer.batch_encode_plus([uncond_prompt], padding="max_length").input_ids
+            # (Batch, Seq_Len)
             uncond_tokens = torch.tensor(uncond_tokens, dtype=torch.long, device=device)
+            # (Batch, Seq_Len) -> (Batch, Seq_Len, Dim)
             uncond_context = clip(uncond_tokens)
 
+            # Concatenante the two outputs so its prepared to be used as an input to U-Net
+            # (Batch, Seq_Len, Dim) + (Batch, Seq_Len, Dim) = (2, 77, 768)
+            context = torch.cat([cond_context, uncond_context])
+        else:
+            # Classifier guidance 
+            tokens = tokenizer.batch_encode_plus([prompt], padding="max_length", max_length=77).input_ids
+            tokens = torch.Tensor(tokens, dtype=torch.long, device=device)
+            context = clip(tokens)
+        
+        # Can offload to CPU or whatever device in the mean time
+        to_idle(clip)
+
+        
