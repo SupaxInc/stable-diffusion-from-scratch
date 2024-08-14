@@ -232,14 +232,20 @@ In classifier guidance, an additional classifier is trained to predict the class
 
 ##### Classifier-Free Guidance
 
-Classifier-free guidance, on the other hand, doesn't require a separate classifier. Instead, it uses a single network trained to handle both conditioned and unconditioned generation:
+Classifier-free guidance eliminates the need for a separate classifier. Instead, it utilizes a single network trained to handle both conditioned and unconditioned generation.
 
-1. **Training Process**: During training, with some probability, the conditional signal (e.g., text prompt) is set to zero or a null token. For example, there is a 50% chance that we set the prompt as zero and let the model remove the noise without the prompt. This way the model knows to learn to pay attention to the prompt and to not pay attention to the prompt. 
-2. **Dual Outputs**: As a result, the network learns to produce both conditioned and unconditioned outputs.
-3. **Guidance Scale**: During inference, both the conditioned and unconditioned outputs are generated and then combined using a guidance scale parameter.
-4. **Weighted Combination**: The final output is a weighted combination of the conditioned and unconditioned predictions, where the weight (guidance scale) determines how much influence the conditioning signal has.
+**Training Process**:
+1. **Dual Learning**: During training, the model learns to process both conditioned and unconditioned inputs. With a certain probability (e.g., 50%), the conditional signal (like a text prompt) is set to zero or a null token. This teaches the model to generate images both with and without specific guidance.
+2. **Unified Network**: The same network learns to produce both conditioned and unconditioned outputs, crucial for its versatility during inference.
 
-The combine output formula for classifier-free guidance is typically expressed as:
+**Inference Process**:
+1. **Prompt Types**: 
+   - Conditioned prompt: A specific instruction guiding the image generation (e.g., "generate a cat").
+   - Unconditioned prompt: A general or null prompt, allowing more freedom in generation.
+2. **Guidance Scale**: A parameter that balances the influence of conditioned and unconditioned outputs.
+3. **Output Combination**: The final output is a weighted combination of conditioned and unconditioned predictions.
+
+The classifier-free guidance formula is typically expressed as:
 
 z<sub>guided</sub> = z<sub>uncond</sub> + w * (z<sub>cond</sub> - z<sub>uncond</sub>)
 
@@ -249,12 +255,14 @@ Where:
 - z<sub>cond</sub> is the conditioned output (based on the prompt)
 - w is the guidance scale (weight)
 
-The guidance scale w controls how much the model pays attention to the conditioning signal (prompt):
-- When w = 0, the output is purely unconditioned (ignores the prompt)
-- When w = 1, it's a balanced mix of conditioned and unconditioned outputs
-- When w > 1, it emphasizes the conditioned output, potentially leading to stronger adherence to the prompt but possibly less diverse or realistic results
+The guidance scale w controls the prompt's influence:
+- w = 0: Purely unconditioned output (ignores the prompt)
+- w = 1: Balanced mix of conditioned and unconditioned outputs
+- w > 1: Emphasizes the conditioned output, potentially leading to stronger prompt adherence but possibly less diverse results
 
-Adjusting this guidance scale allows fine-tuning of the generation process, balancing between prompt adherence and image quality or diversity.
+Adjusting the guidance scale allows fine-tuning of the generation process, balancing between prompt adherence and image quality or diversity.
+
+It's important to note that while the unconditioned prompt can guide the model to avoid certain elements, it's not a direct "negative prompt" system. The unconditioned generation provides a baseline, and the difference between conditioned and unconditioned outputs is what steers the generation towards or away from specific features. This approach allows for nuanced control over the generated content without explicitly defining what not to include.
 <br><br>
 
 ## CLIP Encoder
