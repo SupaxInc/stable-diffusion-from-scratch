@@ -239,11 +239,19 @@ Classifier-free guidance eliminates the need for a separate classifier. Instead,
 2. **Unified Network**: The same network learns to produce both conditioned and unconditioned outputs, crucial for its versatility during inference.
 
 **Inference Process**:
-1. **Prompt Types**: 
-   - Conditioned prompt: A specific instruction guiding the image generation (e.g., "generate a cat").
-   - Unconditioned prompt: A general or null prompt, allowing more freedom in generation.
-2. **Guidance Scale**: A parameter that balances the influence of conditioned and unconditioned outputs.
-3. **Output Combination**: The final output is a weighted combination of conditioned and unconditioned predictions.
+In Stable Diffusion, the classifier-free guidance approach involves two separate inference passes:
+
+1. **Conditioned Inference**: 
+   - Uses the specified text prompt (e.g., "generate a cat").
+   - Guides the generation towards the desired output.
+
+2. **Unconditioned Inference**: 
+   - Uses an empty or null text prompt.
+   - Represents a more general, unguided generation.
+
+3. **Guidance Scale**: A parameter that balances the influence of conditioned and unconditioned outputs.
+
+4. **Output Combination**: The final output is a weighted combination of conditioned and unconditioned predictions.
 
 The classifier-free guidance formula is typically expressed as:
 
@@ -251,8 +259,8 @@ z<sub>guided</sub> = z<sub>uncond</sub> + w * (z<sub>cond</sub> - z<sub>uncond</
 
 Where:
 - z<sub>guided</sub> is the final guided output
-- z<sub>uncond</sub> is the unconditioned output
-- z<sub>cond</sub> is the conditioned output (based on the prompt)
+- z<sub>uncond</sub> is the unconditioned output (from the empty prompt inference)
+- z<sub>cond</sub> is the conditioned output (from the specified prompt inference)
 - w is the guidance scale (weight)
 
 The guidance scale w controls the prompt's influence:
@@ -262,7 +270,7 @@ The guidance scale w controls the prompt's influence:
 
 Adjusting the guidance scale allows fine-tuning of the generation process, balancing between prompt adherence and image quality or diversity.
 
-It's important to note that while the unconditioned prompt can guide the model to avoid certain elements, it's not a direct "negative prompt" system. The unconditioned generation provides a baseline, and the difference between conditioned and unconditioned outputs is what steers the generation towards or away from specific features. This approach allows for nuanced control over the generated content without explicitly defining what not to include.
+It's important to note that while the unconditioned prompt (often an empty text) guides the model to produce a more general output, it's not a direct "negative prompt" system. The difference between conditioned and unconditioned outputs is what steers the generation towards or away from specific features. This approach allows for nuanced control over the generated content without explicitly defining what not to include.
 <br><br>
 
 ## CLIP Encoder
