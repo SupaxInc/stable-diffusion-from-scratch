@@ -8,7 +8,7 @@ from attention import SelfAttention, CrossAttention
 class TimeEmbedding(nn.Module):
     def __init__(self, embed_dim: int):
         """
-        Convert a scalar timestep that is used for the generated noisy latent into a feature vector (time embedding).
+        Further process the initial time embedding to expand its dimensionality.
         """
         super().__init__()
 
@@ -20,18 +20,18 @@ class TimeEmbedding(nn.Module):
     
     def forward(self, t: torch.Tensor) -> torch.Tensor:
         """
-        In diffusion models, each noise level (timestep) needs to be represented
-        as a vector to provide temporal information to the model. This embedding
-        allows the model to understand and differentiate between different stages
-        of the diffusion process.
+        Further process the initial time embedding to provide more detailed
+        temporal information to the model. This expanded embedding allows
+        the model to better understand and differentiate between different
+        stages of the diffusion process.
 
         Args:
-            t: Input timestep tensor (1, 320).
+            t: Input time embedding tensor (1, 320).
         
         Returns:
-            torch.Tensor: Time embedding (Batch, 4*embed_dim)
+            torch.Tensor: Expanded time embedding (1, 4*embed_dim)
         """
-        # Expand dimensionality of the time step
+        # Expand dimensionality of the time embedding
         # (1, 320) -> (1, 1280)
         x = self.linear_1(t)
         

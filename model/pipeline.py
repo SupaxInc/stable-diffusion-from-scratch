@@ -46,7 +46,7 @@ def generate(
         tokenizer: The tokenizer to use for encoding the prompts.
 
     Returns:
-        numpy.ndarray: The generated image as a numpy array with shape (HEIGHT, WIDTH, 3) and dtype uint8.
+        numpy.ndarray: The generated image as a numpy array with shape (HEIGHT, WIDTH, 3) and dtype uint8 so that it can be visualized later.
     """
     with torch.no_grad():
         if not (0 < strength <= 1):
@@ -190,26 +190,73 @@ def generate(
         images = rescale(images, (-1, 1), (0, 255), clamp=True)
         # (1, 3, HEIGHT, WIDTH) -> (1, HEIGHT, WIDTH, 3)
         images = images.permute(0, 2, 3, 1)
-        images = images.to("cpu", torch.uint8).numpy()
+        images = images.to("cpu", torch.uint8).numpy() # Convert to numpy array so it can be visualized later
 
         # Return the first (and only) image in the batch
         return images[0]
 
 def rescale(x, old_range, new_range, clamp=False):
+    """
+    Rescale the tensor `x` from one range to another.
+
+    This function adjusts the values in tensor `x` from an original range (`old_range`)
+    to a new range (`new_range`). Optionally, values can be clamped to the new range
+    to ensure no values fall outside it. This is particularly useful in image processing
+    where pixel values need to be adjusted between different scales, e.g., [-1, 1] to [0, 255].
+
+    Args:
+        x (torch.Tensor): The input tensor to rescale.
+        old_range (tuple): A tuple (old_min, old_max) representing the minimum and
+                           maximum values of the current range of `x`.
+        new_range (tuple): A tuple (new_min, new_max) representing the target minimum
+                           and maximum values for `x` after rescaling.
+        clamp (bool, optional): If True, values will be clamped to the range specified
+                                by `new_range`. Default is False.
+
+    Returns:
+        torch.Tensor: The rescaled tensor with the same dimensions as the input `x`.
+    """
+    # Subtract the old minimum from `x` to shift values starting from zero
     old_min, old_max = old_range
     new_min, new_max = new_range
+    # Shifts all values in tensor x by -old_min (E.g. [10, 20, 30] = [0, 10, 30])
     x -= old_min
+    # Scale the shifted values in tensor x to the new range
     x *= (new_max - new_min) / (old_max - old_min)
+    # Add the new minimum to shift the scaled values to the desired range
     x += new_min
 
+    # Optionally clamp values to ensure they remain within the new range
     if clamp:
         x = x.clamp(new_min, new_max)
+    
+    return x
 
 def get_time_embedding(timestep):
-    # Positional encoding formula
-    # (160)
+    """
+    Generate a time embedding for a given timestep in the diffusion process.
+
+    Creates a time-dependent signal used in Stable Diffusion to control
+    the denoising process at different stages. It uses sinusoidal positional encoding
+    to generate a unique embedding for each timestep.
+
+    The formula here is taken from the original Transformer architecture so its similar to how Transformers
+    encode position information for tokens in a sequence.
+
+    Args:
+        timestep (int): The current timestep in the diffusion process.
+
+    Returns:
+        torch.Tensor: A tensor of shape (1, 320) containing the time embeddings.
+    """
+    # Calculate frequencies for positional encoding
+    # Shape: (160,)
     freqs = torch.pow(10000, -torch.arange(start=0, end=160, dtype=torch.float32) / 160)
-    # (1, 160)
+    
+    # Scale timestep by frequencies
+    # Shape: (1, 160)
     x = torch.tensor([timestep], dtype=torch.float32)[:, None] * freqs[None]
-    # (1, 320)
+    
+    # Apply sine and cosine functions and concatenate
+    # Shape: (1, 320)
     return torch.cat([torch.cos(x), torch.sin(x)], dim=-1)
