@@ -402,6 +402,9 @@ class Diffusion(nn.Module):
             latent: The noisy latent image (variable Z) sampled from the VAE encoder (Batch, 4, Height/8, Width/8).
             context: Embeddings that capture the semantic relationships of the text prompt (Batch, Seq_Len, Dim).
             timestep: The timestep that was used to generate the noisy latent image. (1, 320).
+        
+        Returns:
+            torch.Tensor: Predicted noise by the UNet (Batch, 4, Height/8, Width/8).
         """
 
         # (1, 320) -> (1, 1280)
