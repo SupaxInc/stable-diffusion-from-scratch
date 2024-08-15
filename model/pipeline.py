@@ -27,6 +27,27 @@ def generate(
         idle_device=None, 
         tokenizer=None,
 ):
+    """
+    Generate an image using the Stable Diffusion pipeline.
+
+    Args:
+        prompt (str): The text prompt to guide the image generation.
+        uncond_prompt (str): The unconditional prompt used for classifier-free guidance.
+        input_image (str, optional): Path to an input image for image-to-image generation. Defaults to None.
+        strength (float, optional): Determines how much to transform the input image. Only used if input_image is provided. Defaults to 0.8.
+        do_cfg (bool, optional): Whether to use classifier-free guidance. Defaults to True.
+        cfg_scale (float, optional): The scale for classifier-free guidance. Higher values result in stronger adherence to the prompt. Defaults to 7.5.
+        sampler_name (str, optional): The name of the sampler to use. Currently only supports "ddpm". Defaults to "ddpm".
+        n_inference_steps (int, optional): The number of denoising steps. Defaults to 50.
+        models (dict): A dictionary containing the required models: "clip", "encoder", "diffusion", and "decoder".
+        seed (int, optional): Seed for the random number generator. If None, a random seed will be used. Defaults to None.
+        device (torch.device, optional): The device to run the generation on. Defaults to None.
+        idle_device (torch.device, optional): The device to move models to when not in use. Defaults to None.
+        tokenizer: The tokenizer to use for encoding the prompts.
+
+    Returns:
+        numpy.ndarray: The generated image as a numpy array with shape (HEIGHT, WIDTH, 3) and dtype uint8.
+    """
     with torch.no_grad():
         if not (0 < strength <= 1):
             raise ValueError("Strength must be between 0 and 1!")
@@ -44,128 +65,134 @@ def generate(
             generator.manual_seed(seed)
         
         clip = models["clip"]
-        clip.to_device(device)
+        clip.to(device)
 
         if do_cfg:
             # Prepare to do two inferences for Classifier-free guidance, one for conditioned output and another for unconditioned output
 
-            # Convert the prompt into tokens using the tokenizer, if its too short fill it with paddings
+            # Convert the prompt into tokens using the tokenizer, if it's too short fill it with paddings
             cond_tokens = tokenizer.batch_encode_plus([prompt], padding="max_length", max_length=77).input_ids
-            # Convert input ids (tokens) to a tensor: (Batch, Seq_Len)
-            cond_tokens = torch.Tensor(cond_tokens, dtype=torch.long, device=device)
-            # Convert the tokens to embeddings: (Batch, Seq_Len) -> (Batch, Seq_Len, Dim), dim is size of 768 (from CLIP embed dims)
+            # Convert input ids (tokens) to a tensor: (1, 77), (Batch, Seq_Len)
+            cond_tokens = torch.tensor(cond_tokens, dtype=torch.long, device=device)
+            # Convert the tokens to embeddings: (1, 77) -> (1, 77, 768), where 768 is the CLIP embedding dimension
             cond_context = clip(cond_tokens)
 
             # Do the same for unconditioned output
-            uncond_tokens = tokenizer.batch_encode_plus([uncond_prompt], padding="max_length").input_ids
-            # (Batch, Seq_Len)
+            uncond_tokens = tokenizer.batch_encode_plus([uncond_prompt], padding="max_length", max_length=77).input_ids
+            # (1, 77)
             uncond_tokens = torch.tensor(uncond_tokens, dtype=torch.long, device=device)
-            # (Batch, Seq_Len) -> (Batch, Seq_Len, Dim)
+            # (1, 77) -> (1, 77, 768), (Batch, Seq_Len, Dim)
             uncond_context = clip(uncond_tokens)
 
-            # Concatenante the two outputs so its prepared to be used as an input to U-Net
-            # (Batch, Seq_Len, Dim) + (Batch, Seq_Len, Dim) = (2, 77, 768)
+            # Concatenate the two outputs so it's prepared to be used as an input to U-Net
+            # (1, 77, 768) + (1, 77, 768) = (2, 77, 768), (Batch, Seq_Len, Dim)
             context = torch.cat([cond_context, uncond_context])
         else:
-            # Classifier guidance 
+            # Without classifier-free guidance
             tokens = tokenizer.batch_encode_plus([prompt], padding="max_length", max_length=77).input_ids
-            # (Batch, Seq_Len)
-            tokens = torch.Tensor(tokens, dtype=torch.long, device=device)
-            # (Batch, Seq_Len) -> (Batch, Seq_Len, Dim) = (1, 77, 768)
+            # (1, 77)
+            tokens = torch.tensor(tokens, dtype=torch.long, device=device)
+            # (1, 77) -> (1, 77, 768),(Batch, Seq_Len, Dim)
             context = clip(tokens)
         
         # Can offload CLIP model to CPU or whatever device when not being used
         to_idle(clip)
 
-        # Define the amount denoisification steps for the sampler
+        # Define the sampler and set the number of inference steps
         if sampler_name == "ddpm":
             sampler = DDPMSampler(generator)
             sampler.set_inference_steps(n_inference_steps)
         else:
-            raise ValueError("Unknown sampler: {sampler}")
+            raise ValueError(f"Unknown sampler: {sampler_name}")
         
+        # Corresponds to the output tensor shape of the VAE encoder
         latents_shape = (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
         
         if input_image:
-            # Begin the image-to-image architecture 
+            # Begin the image-to-image pipeline
 
             encoder = models["encoder"]
             encoder.to(device)
 
             input_image_tensor = input_image.resize((WIDTH, HEIGHT))
             input_image_tensor = np.array(input_image_tensor)
-            # (Height, Width, Channel)
+            # (HEIGHT, WIDTH, 3)
             input_image_tensor = torch.tensor(input_image_tensor, dtype=torch.float32)
-            # Each pixel is from 0 to 255 which is incorrect for U-Net inputs, U-Net needs pixels to be clamped from -1 to 1 instead
+            # Rescale pixel values from [0, 255] to [-1, 1] for the VAE which will be used as an input to U-Net
             input_image_tensor = rescale(input_image_tensor, (0, 255), (-1, 1))
 
-            # (Height, Width, Channel) -> # (Batch, Height, Width, Channel)
+            # (HEIGHT, WIDTH, 3) -> (1, HEIGHT, WIDTH, 3)
             input_image_tensor = input_image_tensor.unsqueeze(0)
 
-            # VAE Encoder requires the Height and Width to be the last 2 index of the tensor shape
-            # (Batch, Height, Width, Channel) -> # (Batch, Channel, Height, Width)
+            # VAE Encoder requires the Channel dimension to be before Height and Width
+            # (1, HEIGHT, WIDTH, 3) -> (1, 3, HEIGHT, WIDTH)
             input_image_tensor = input_image_tensor.permute(0, 3, 1, 2)
 
-            # Allows us to make the noise deterministic if we have a seed
+            # Generate noise for the encoder (allows deterministic results with a seed)
             encoder_noise = torch.randn(latents_shape, generator=generator, device=device)
 
-            # Run the image through the VAE encoder, create the latent (Z)
+            # Run the image through the VAE encoder to get the latent representation (Z)
+            # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH), output of the VAE encoder
             latents = encoder(input_image_tensor, encoder_noise)
-            # Use the strength parameter to generate the noisy image
-            # A noisier image will give more freedom for creativity, while a less noisy image will look more like the original image
+            
+            # Add noise to the latents based on the strength parameter
+            # A higher strength allows more deviation from the input image
             sampler.set_strength(strength=strength)
             latents = sampler.add_noise(latents, sampler.timesteps[0])
 
             to_idle(encoder)
         else:
-            # Begin text-to-image architecture
+            # Begin text-to-image pipeline
 
-            # Begin with a random noise N(0, I)
+            # Start with random noise in the latent space: N(0, I)
+            # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
             latents = torch.randn(latents_shape, generator=generator, device=device)
         
         diffusion = models["diffusion"]
         diffusion.to(device)
 
         timesteps = tqdm(sampler.timesteps)
-        # Continuously denoise the image for every timestep (based on # of inference steps)
+        # Iteratively denoise the latents for every timestep (based on # of inference steps)
         for i, timestep in enumerate(timesteps):
-            # Turn the scalar timestep into a vector: (1, 320) -> (1, 1280)
+            # Create a time embedding for the current timestep
+            # (1,) -> (1, 320)
             time_embedding = get_time_embedding(timestep).to(device)
 
-            # (Batch, 4, Latent_Height, Latent_Width)
+            # (Batch, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
             model_input = latents
 
             if do_cfg:
-                # Create two copies of the latent so it can be used for condition and unconditioned prompts
-                # (Batch, 4, Latent_Height, Latent_Width) -> (2 * Batch, 4, Latent_Height, Latent_Width)
+                # Duplicate the input for conditional and unconditional outputs
+                # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH) -> (2, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
                 model_input = model_input.repeat(2, 1, 1, 1)
             
-            # Predicted noise by the UNet
-            model_output  = diffusion(model_input, context, time_embedding)
+            # Predict noise using the UNet
+            model_output = diffusion(model_input, context, time_embedding)
 
             if do_cfg:
                 output_cond, output_uncond = model_output.chunk(2)
-                # Classifier-free guidance formula: zguided = zuncond + w * (zcond - zuncond)
-                model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
+                # Apply classifier-free guidance: z_guided = z_uncond + cfg_scale * (z_cond - z_uncond)
+                model_output = output_uncond + cfg_scale * (output_cond - output_uncond)
             
-            # Remove noise predicted by the UNet
+            # Update latents by removing the predicted noise
             latents = sampler.step(timestep, latents, model_output)
         
         to_idle(diffusion)
 
         decoder = models["decoder"]
         decoder.to(device)
-        # Run the images to the decoder to rescale the image back
+        # Decode the latents to get the final image
         images = decoder(latents)
 
         to_idle(decoder)
         
-        # Begin rescaling the image back to 0-255 for RGB
+        # Rescale pixel values from [-1, 1] to [0, 255]
         images = rescale(images, (-1, 1), (0, 255), clamp=True)
-        # (Batch, Channel, Height, Width) -> (Batch, Height, Width, Channel)
+        # (1, 3, HEIGHT, WIDTH) -> (1, HEIGHT, WIDTH, 3)
         images = images.permute(0, 2, 3, 1)
         images = images.to("cpu", torch.uint8).numpy()
 
+        # Return the first (and only) image in the batch
         return images[0]
 
 def rescale(x, old_range, new_range, clamp=False):
