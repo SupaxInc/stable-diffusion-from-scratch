@@ -235,23 +235,39 @@ In classifier guidance, an additional classifier is trained to predict the class
 Classifier-free guidance eliminates the need for a separate classifier. Instead, it utilizes a single network trained to handle both conditioned and unconditioned generation.
 
 **Training Process**:
-1. **Dual Learning**: During training, the model learns to process both conditioned and unconditioned inputs. With a certain probability (e.g., 50%), the conditional signal (like a text prompt) is set to zero or a null token. This teaches the model to generate images both with and without specific guidance.
-2. **Unified Network**: The same network learns to produce both conditioned and unconditioned outputs, crucial for its versatility during inference.
+1. **Dual Learning**: During training, the model learns to process both conditioned and unconditioned inputs. This dual approach is crucial for several reasons:
+   - Conditioned inputs (with text prompts) teach the model to generate images that align with specific descriptions.
+   - Unconditioned inputs (with null or empty prompts) allow the model to learn general image generation without specific guidance.
+   - By alternating between these, the model becomes versatile, capable of both following prompts and generating diverse, unprompted images.
+   - This approach prevents over-reliance on conditioning, ensuring the model can still generate coherent images even with vague or absent prompts.
+
+2. **Unified Network**: The same network learns to handle both conditioned and unconditioned generation, which is important because:
+   - It creates a more efficient and flexible model that can adapt to various input types.
+   - The shared knowledge between conditioned and unconditioned generation allows for better generalization.
+   - It enables the model to understand the relationship between text prompts and image features more comprehensively.
 
 **Inference Process**:
-In Stable Diffusion, the classifier-free guidance approach involves two separate inference passes:
+In Stable Diffusion, the classifier-free guidance approach involves two separate inference passes, each serving a distinct purpose:
 
 1. **Conditioned Inference**: 
    - Uses the specified text prompt (e.g., "generate a cat").
    - Guides the generation towards the desired output.
+   - This pass ensures that the generated image aligns with the given prompt, incorporating specific features or concepts described in the text.
 
 2. **Unconditioned Inference**: 
    - Uses an empty or null text prompt.
    - Represents a more general, unguided generation.
+   - This pass allows the model to generate based on its learned understanding of image structure and content, without specific textual constraints.
+   - It acts as a baseline, representing what the model would generate without any guidance.
 
 3. **Guidance Scale**: A parameter that balances the influence of conditioned and unconditioned outputs.
+   - It allows fine-tuning of how closely the final image adheres to the prompt versus how much it relies on the model's general image generation capabilities.
 
 4. **Output Combination**: The final output is a weighted combination of conditioned and unconditioned predictions.
+   - By combining these two outputs, the model can generate images that are both prompt-relevant and visually coherent.
+   - This combination helps in reducing artifacts or over-fitting to the prompt, resulting in more natural-looking images.
+
+The use of both conditioned and unconditioned inferences during the generation process allows for a balance between prompt adherence and image quality, enabling the creation of diverse, high-quality images that can be finely controlled through text prompts.
 
 The classifier-free guidance formula is typically expressed as:
 
