@@ -127,6 +127,7 @@ def generate(
         diffusion.to(device)
 
         timesteps = tqdm(sampler.timesteps)
+        # Continuously denoise the image for every timestep (based on # of inference steps)
         for i, timestep in enumerate(timesteps):
             # Turn the scalar timestep into a vector: (1, 320) -> (1, 1280)
             time_embedding = get_time_embedding(timestep).to(device)
@@ -139,5 +140,30 @@ def generate(
                 # (Batch, 4, Latent_Height, Latent_Width) -> (2 * Batch, 4, Latent_Height, Latent_Width)
                 model_input = model_input.repeat(2, 1, 1, 1)
             
-            # Output is the predicted noise by the UNet
+            # Predicted noise by the UNet
             model_output  = diffusion(model_input, context, time_embedding)
+
+            if do_cfg:
+                output_cond, output_uncond = model_output.chunk(2)
+                # Classifier-free guidance formula: zguided = zuncond + w * (zcond - zuncond)
+                model_output = cfg_scale * (output_cond - output_uncond) + output_uncond
+            
+            # Remove noise predicted by the UNet
+            latents = sampler.step(timestep, latents, model_output)
+        
+        to_idle(diffusion)
+
+        decoder = models["decoder"]
+        decoder.to(device)
+        # Run the images to the decoder to rescale the image back
+        images = decoder(latents)
+
+        to_idle(decoder)
+        
+        # Begin rescaling the image back to 0-255 for RGB
+        images = rescale(images, (-1, 1), (0, 255), clamp=True)
+        # (Batch, Channel, Height, Width) -> (Batch, Height, Width, Channel)
+        images = images.permute(0, 2, 3, 1)
+        images = images.to("cpu", torch.uint8).numpy()
+
+        return images[0]
