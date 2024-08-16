@@ -75,7 +75,7 @@ class DDPMSampler:
 
     def add_noise(self, original_samples: torch.FloatTensor, timestep: torch.IntTensor) -> torch.FloatTensor:
         """
-        Adds noise to the original samples (input images).
+        Adds noise to the original samples (input images) using Forward Process of the DDPM sampler.
 
         Args:
             original_samples (torch.FloatTensor): The original, clean samples to which noise will be added  (Batch, Channels, Height, Width).
@@ -87,7 +87,7 @@ class DDPMSampler:
 
         This method follows Equation (4) forward process from the DDPM paper, 
         which describes transitioning from the original image (x0) to any noisified image (xt) in one step:
-        
+
         q(x_t | x_0) = N(x_t; sqrt(α_t)x_0, (1 - α_t)I)
         """
         # Move alpha_cumprod to the same device and dtype as original_samples
@@ -95,8 +95,8 @@ class DDPMSampler:
         # Ensure timestep is on the correct device
         timestep = timestep.to(original_samples.device)
 
-        # Calculate sqrt(α_t)
-        sqrt_alpha_cumprod = alpha_cumprod[timestep] ** 0.5
+        # Calculate mean: sqrt(α_t)
+        sqrt_alpha_cumprod = alpha_cumprod[timestep] ** 0.5 # Exponent 0.5 is same as sqrt
         sqrt_alpha_cumprod = sqrt_alpha_cumprod.flatten()
         # Expand dimensions until it matches original_samples
         while len(sqrt_alpha_cumprod.shape) < len(original_samples.shape):
@@ -109,11 +109,11 @@ class DDPMSampler:
         while len(sqrt_one_minus_alpha_cumprod.shape) < len(original_samples.shape):
             sqrt_one_minus_alpha_cumprod = sqrt_one_minus_alpha_cumprod.unsqueeze(-1)
 
-        # Begin sampling from the distribution (generating random noise), according from equation (4, forward process) of the DDPM paper
-            # Similar to formula to transform normal variable to desired distribution: X = mean + stdev * z
+        # Generate random noise with the same shape as original images
         noise = torch.randn(original_samples.shape, generator=self.generator, device=original_samples.device, dtype=original_samples.dtype)
 
-        # Combine the original samples with noise according to the DDPM equation
+        # Begin sampling from the distribution (generating random noise), according from equation (4, forward process) of the DDPM paper
+            # Similar to formula to transform normal variable to desired distribution: X = mean + stdev * z
         noisy_samples = (sqrt_alpha_cumprod * original_samples) + (sqrt_one_minus_alpha_cumprod * noise)
 
         return noisy_samples

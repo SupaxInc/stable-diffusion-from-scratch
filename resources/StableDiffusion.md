@@ -133,18 +133,37 @@ Where ε is sampled from a standard normal distribution N(0, I). This allows us 
 ### Reverse Process
 The problem with the reverse process is that we don't have a clear mathematical formula to be able to remove the noise from the image (reverse the process) at each time step *t*. Therefore, we train a neural network to do it for us. 
 
-In the reverse process of DDPM, we aim to remove the noise from the noisy image x<sub>t</sub> to obtain a less noisy image x<sub>t-1</sub>. This process is modeled by a neural network, denoted as p<sub>θ</sub> (P theta), which learns to predict the distribution of the previous time step's image given the current noisy image. Remember that there is no clear formula so the neural network will learn and predict the noise of μ<sub>θ</sub>(x<sub>t</sub>, t) and Σ<sub>θ</sub>(x<sub>t</sub>, t) for us. The formula is: 
+In the reverse process of DDPM, we aim to remove the noise from the noisy image x<sub>t</sub> to obtain a less noisy image x<sub>t-1</sub>. This process is modeled by a neural network, denoted as p<sub>θ</sub> (P theta), which learns to predict the distribution of the previous time step's image given the current noisy image.
+
+Traditionally, the formula for this process is:
 
 <pre>
 p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>) = N(x<sub>t-1</sub>; μ<sub>θ</sub>(x<sub>t</sub>, t), Σ<sub>θ</sub>(x<sub>t</sub>, t))
 </pre>
 
+Where:
 - p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>): "Transitioning from noisy image x<sub>t</sub> to less noisy image x<sub>t-1</sub>".
 - N: A normal distribution.
-- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean predicted by the neural network for the distribution of x<sub>t-1</sub> given x<sub>t</sub> and time step t.
-- Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance predicted by the neural network for the distribution of x<sub>t-1</sub> given x<sub>t</sub> and time step t.
+- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean predicted by the neural network.
+- Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance predicted by the neural network.
 
-The neural network p<sub>θ</sub> is trained to minimize the difference between the predicted and actual previous time step images, effectively learning to denoise the image step by step. This reverse process allows us to start from pure noise x<sub>T</sub> and iteratively remove the noise to generate a coherent image x<sub>0</sub>.
+However, in many implementations of stable diffusion, including the one implemented for this project, the model is designed to predict the noise (ε<sub>θ</sub>) rather than the mean and variance directly. In this case, we use a different formula for the reverse process:
+
+<pre>
+x<sub>t-1</sub> = 1/√α<sub>t</sub> * (x<sub>t</sub> - ((1 - α<sub>t</sub>)/√(1 - α̅<sub>t</sub>)) * ε<sub>θ</sub>(x<sub>t</sub>, t)) + σ<sub>t</sub> * z
+</pre>
+
+Where:
+- x<sub>t-1</sub>: The less noisy image at the previous time step.
+- x<sub>t</sub>: The current noisy image.
+- α<sub>t</sub> and α̅<sub>t</sub>: Parameters from the forward process noise schedule.
+- ε<sub>θ</sub>(x<sub>t</sub>, t): The noise predicted by the neural network.
+- σ<sub>t</sub>: A small amount of noise added for stochasticity.
+- z: Random noise sampled from a standard normal distribution.
+
+This formula allows us to directly use the predicted noise ε<sub>θ</sub> to denoise the image, without needing to predict the mean and variance explicitly. It's derived from the properties of the forward process and the relationship between the added noise and the image at each step.
+
+The neural network p<sub>θ</sub> is trained to minimize the difference between the predicted and actual noise, effectively learning to denoise the image step by step. This reverse process allows us to start from pure noise x<sub>T</sub> and iteratively remove the noise to generate a coherent image x<sub>0</sub>.
 
 This reverse process is also Markovian, meaning that the next state (x<sub>t-1</sub>) depends only on the current state (x<sub>t</sub>) and not on any of the previous states before x<sub>t</sub>. The Markov property simplifies the modeling of the reverse process, as it ensures that each step can be treated independently given the current state.
 <br>
