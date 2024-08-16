@@ -31,7 +31,7 @@ class DDPMSampler:
         self.alphas = 1.0 - self.betas
         
         # Calculate cumulative product of alphas [alpha_0, alpha_0 * alpha_1, alpha_0 * alpha_1 * alpha_2, ...., etc]
-        # This corresponds to ᾱ_t in the DDPM paper
+        # This corresponds to ᾱ_t (alpha bar) in the DDPM paper
         self.alpha_cumprod = torch.cumprod(self.alphas, 0)
         
         # Constant used in various calculations
@@ -45,7 +45,7 @@ class DDPMSampler:
             # tensor([999, 998, 997, ..., 2, 1, 0]) if T is 1000 
         self.timesteps = torch.from_numpy(np.arange(0, num_training_steps)[::-1].copy())
         
-    def set_inference_steps(self, num_inference_steps: int=50):
+    def set_inference_steps(self, num_inference_steps: int=50) -> torch.Tensor:
         """
         Calculates a subset of timesteps from the original training steps,
         allowing the model to generate images more quickly while maintaining quality.
@@ -72,4 +72,48 @@ class DDPMSampler:
 
         # Convert the numpy array to a PyTorch tensor
         self.timesteps = torch.from_numpy(timesteps)
-    
+
+    def add_noise(self, original_samples: torch.FloatTensor, timestep: torch.IntTensor) -> torch.FloatTensor:
+        """
+        Adds noise to the original samples (input images).
+
+        Args:
+            original_samples (torch.FloatTensor): The original, clean samples to which noise will be added  (Batch, Channels, Height, Width).
+            timestep (torch.IntTensor): The current timestep in the diffusion process (Batch, ).
+
+        Returns:
+            torch.FloatTensor: The noisy samples after adding noise.
+                Shape: Same as original_samples
+
+        This method follows Equation (4) forward process from the DDPM paper, 
+        which describes transitioning from the original image (x0) to any noisified image (xt) in one step:
+        
+        q(x_t | x_0) = N(x_t; sqrt(α_t)x_0, (1 - α_t)I)
+        """
+        # Move alpha_cumprod to the same device and dtype as original_samples
+        alpha_cumprod = self.alpha_cumprod.to(device=original_samples.device, dtype=original_samples.dtype)
+        # Ensure timestep is on the correct device
+        timestep = timestep.to(original_samples.device)
+
+        # Calculate sqrt(α_t)
+        sqrt_alpha_cumprod = alpha_cumprod[timestep] ** 0.5
+        sqrt_alpha_cumprod = sqrt_alpha_cumprod.flatten()
+        # Expand dimensions until it matches original_samples
+        while len(sqrt_alpha_cumprod.shape) < len(original_samples.shape):
+            sqrt_alpha_cumprod = sqrt_alpha_cumprod.unsqueeze(-1)
+
+        # Calculates standard deviation (not variance): sqrt(1 - α_t)
+        sqrt_one_minus_alpha_cumprod = (1 - alpha_cumprod[timestep]) ** 0.5
+        sqrt_one_minus_alpha_cumprod = sqrt_one_minus_alpha_cumprod.flatten()
+        # Expand dimensions until it matches original_samples
+        while len(sqrt_one_minus_alpha_cumprod.shape) < len(original_samples.shape):
+            sqrt_one_minus_alpha_cumprod = sqrt_one_minus_alpha_cumprod.unsqueeze(-1)
+
+        # Begin sampling from the distribution (generating random noise), according from equation (4, forward process) of the DDPM paper
+            # Similar to formula to transform normal variable to desired distribution: X = mean + stdev * z
+        noise = torch.randn(original_samples.shape, generator=self.generator, device=original_samples.device, dtype=original_samples.dtype)
+
+        # Combine the original samples with noise according to the DDPM equation
+        noisy_samples = (sqrt_alpha_cumprod * original_samples) + (sqrt_one_minus_alpha_cumprod * noise)
+
+        return noisy_samples

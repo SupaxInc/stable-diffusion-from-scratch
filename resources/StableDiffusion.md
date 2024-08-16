@@ -108,11 +108,24 @@ As you can see from above how this this process is ***Markovian*** since the nex
 Additionally, the formula for transitioning from the original image (x<sub>0</sub>) to any noisified image (x<sub>t</sub>) in one step is:
 
 <pre>
-q(x<sub>t</sub> | x<sub>0</sub>) = √(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε
+q(x<sub>t</sub> | x<sub>0</sub>) = N(√(α̅<sub>t</sub>) * x<sub>0</sub>, (1 - α̅<sub>t</sub>) * I)
 </pre>
 
+This formula represents a Gaussian distribution from which we can sample x<sub>t</sub>:
+
 - q(x<sub>t</sub> | x<sub>0</sub>): "Transitioning from original image to any noisy step t image".
+- N(μ, σ²): Denotes a normal distribution with mean μ and variance σ².
+   - The mean (μ) of this distribution is √(α̅<sub>t</sub>) * x<sub>0</sub>, and the variance (σ²) is (1 - α̅<sub>t</sub>) * I.
 - α̅<sub>t</sub> is the cumulative product of the noise schedule up to time step t.
+- I: Identity matrix, representing the covariance structure.
+
+To sample from this distribution, we can use the reparameterization trick:
+
+<pre>
+x<sub>t</sub> = √(α̅<sub>t</sub>) * x<sub>0</sub> + √(1 - α̅<sub>t</sub>) * ε
+</pre>
+
+Where ε is sampled from a standard normal distribution N(0, I). This allows us to add noise to the original image in a way that's consistent with the forward process of the diffusion model.
 <br>
 
 ---

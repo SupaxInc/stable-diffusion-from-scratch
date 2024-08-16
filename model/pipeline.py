@@ -234,7 +234,7 @@ def rescale(x, old_range, new_range, clamp=False):
 
 def get_time_embedding(timestep):
     """
-    Generate a time embedding for a given timestep in the diffusion process.
+    Generate a time embedding feature vector for a given timestep in the diffusion process.
 
     Creates a time-dependent signal used in Stable Diffusion to control
     the denoising process at different stages. It uses sinusoidal positional encoding
