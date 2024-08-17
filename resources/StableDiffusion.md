@@ -186,6 +186,8 @@ The reverse process in DDPM aims to gradually remove noise from a noisy image x<
 
 In the implementation for this project, the model is designed to predict the noise (ε<sub>θ</sub>) rather than directly predicting the mean and variance of the distribution. This approach aligns with the DDPM paper and allows for a more efficient computation. The reverse process is described by the following equations:
 
+***Note again that: In DDPM, α<sub>t</sub> = 1 - β<sub>t</sub>***
+
 **Equation (11) from the DDPM paper:**
 <pre>
 p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>) = N(x<sub>t-1</sub>; μ<sub>θ</sub>(x<sub>t</sub>, t), Σ<sub>θ</sub>(x<sub>t</sub>, t))

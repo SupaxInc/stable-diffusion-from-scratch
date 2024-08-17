@@ -5,7 +5,8 @@ class DDPMSampler:
     def __init__(
             self, 
             generator: torch.Generator, 
-            num_training_steps: int = 1000, 
+            num_training_steps: int = 1000,
+            num_inference_steps: int = 50, 
             beta_start: float = 0.00085, 
             beta_end: float = 0.0120
     ):
@@ -40,13 +41,15 @@ class DDPMSampler:
 
         self.generator = generator
         self.num_training_steps = num_training_steps
+        self.num_inference_steps = num_inference_steps
+        self.step_ratio = self.num_training_steps // self.num_inference_steps
         
         # Create an array of timesteps in reverse order
         # This is used to iterate through the diffusion process from T to 0
             # tensor([999, 998, 997, ..., 2, 1, 0]) if T is 1000 
         self.timesteps = torch.from_numpy(np.arange(0, num_training_steps)[::-1].copy())
         
-    def set_inference_steps(self, num_inference_steps: int=50) -> torch.Tensor:
+    def set_inference_steps(self, num_inference_steps: int = 50) -> torch.Tensor:
         """
         Calculates a subset of timesteps from the original training steps,
         allowing the model to generate images more quickly while maintaining quality.
@@ -66,7 +69,7 @@ class DDPMSampler:
         # Need to customize the amount of steps decreased depending on number of inference steps set
             # 999, 998, 997, 996, ... = 1000 steps -> 1000/1000 = 1 step decrease
             # 999, 999-20, 999-40, ... = 50 steps -> 1000/50 = 20 steps decrease
-        step_ratio = self.num_training_steps // self.num_inference_steps
+        self.step_ratio = self.num_training_steps // self.num_inference_steps
         
         # Create an array of timesteps for inference, evenly spaced across the original training steps
         timesteps = (np.arange(0, self.num_inference_steps) * step_ratio).round()[::-1].copy().astype(np.int64)
@@ -75,7 +78,7 @@ class DDPMSampler:
         self.timesteps = torch.from_numpy(timesteps)
 
     def _get_previous_timestep(self, timestep: int) -> int:
-        prev_t = timestep - (self.num_training_steps // self.num_inference_steps)
+        prev_t = timestep - self.step_ratio
         return prev_t
     
     def _get_variance(self, timestep: int) -> torch.Tensor:
@@ -150,10 +153,13 @@ class DDPMSampler:
         # Compute σ_t (sigma_t) for the equation: x_t-1 = μ_θ(x_t, t) + σ_t * z
         # This is derived from equation (11) in the DDPM paper: p_θ(x_t-1 | x_t) = N(x_t-1; μ_θ(x_t, t), Σ_θ(x_t, t))
         sigma_t = 0
+
+        # From the sampling algorithm, no need to generate random noise if we are already back to original x_0
+            # This means we have finished denoising already
         if t > 0:
             device = model_output.device
 
-            # Generate z ~ N(0, I)
+            # Generate random noise: z ~ N(0, I)
             z = torch.randn(model_output.shape, generator=self.generator, device=device, dtype=model_output.dtype)
 
             # Compute σ_t (sigma_t), which is the square root of the variance (Σ_θ(x_t, t))
