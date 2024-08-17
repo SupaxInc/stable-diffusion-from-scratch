@@ -31,6 +31,7 @@ class DDPMSampler:
         self.alphas = 1.0 - self.betas
         
         # Calculate cumulative product of alphas [alpha_0, alpha_0 * alpha_1, alpha_0 * alpha_1 * alpha_2, ...., etc]
+            # alpha_0 * alpha_1 * alpha_2 if t = 2
         # This corresponds to ᾱ_t (alpha bar) in the DDPM paper
         self.alpha_cumprod = torch.cumprod(self.alphas, 0)
         
@@ -91,35 +92,78 @@ class DDPMSampler:
         return variance
     
     def step(self, timestep: int, latents: torch.Tensor, model_output: torch.Tensor) -> torch.FloatTensor:
-        t = timestep
-        prev_t = self._get_previous_timestep(t) # Lets say we are on timestep 980, this will return 960
+        """
+        Reverse process of the DDPM sampler. Removes the noise from the noisified image. x_t -> x_t-1
 
+        Args:
+            timestep (int): Current timestep t in the diffusion process. 
+                            Variable: t
+            latents (torch.Tensor): The current noisy latent images. 
+                            Variable: x_t
+            model_output (torch.Tensor): The predicted noise at current timestep by the model. 
+                            Variable: ε_θ(x_t, t)
+
+        Returns:
+            torch.FloatTensor: The denoised latent image x_t-1.
+
+        This method implements the reverse process using the following equations from the DDPM paper:
+        1. Equation (15): x_0 = (x_t - √(1 - α̅_t) * ε_θ(x_t, t)) / √(α̅_t)
+        2. Equation (7): μ_θ(x_t, t) = √(α̅_t-1)β_t / (1 - α̅_t) * x_0 + √(α_t)(1 - α̅_t-1) / (1 - α̅_t) * x_t
+        3. Equation (11): p_θ(x_t-1 | x_t) = N(x_t-1; μ_θ(x_t, t), Σ_θ(x_t, t))
+        4. Equation derived from 11 to sample previous noisy image x_t-1: xt-1 = μθ(xt, t) + σt * z
+        """
+        t = timestep
+        prev_t = self._get_previous_timestep(t)  # E.g., if t is 980, this will return 960 for 50 inference steps
+        
+        # α̅_t and α̅_t-1 from the cumulative product of (1 - β_t)
+        # These will be used in equations (15) and (7)
         alpha_cumprod_t = self.alpha_cumprod[timestep]
         alpha_cumprod_t_prev = self.alpha_cumprod[prev_t] if prev_t >= 0 else self.one
+
+        # β̅_t and β̅_t-1
+        # These will be used in equation (7)
         beta_cumprod_t = 1 - alpha_cumprod_t
         beta_cumprod_t_prev = 1 - alpha_cumprod_t_prev
+
+        # α_t = α̅_t / α̅_t-1
+        # This will be used in equation (7)
         current_alpha_t = alpha_cumprod_t / alpha_cumprod_t_prev
+        # β_t = 1 - α_t
+        # This will be used in equation (7)
         current_beta_t = 1 - current_alpha_t
 
-        # Compute the predicted original sample using formula (15) of the DDPM paper
+        # Compute x_0 using equation (15)
+        # x_0 = (x_t - √(1 - α̅_t) * ε_θ(x_t, t)) / √(α̅_t)
         pred_original_sample = (latents - beta_cumprod_t ** 0.5 * model_output) / alpha_cumprod_t ** 0.5
 
-        # Compute the coefficients for pred_original_sample and current sample x_t
+        # Preparing for equation (7)
+        # Compute coefficients for pred_original_sample (x_0) and current sample (x_t)
+        # √(α̅_t-1)β_t / (1 - α̅_t)
         pred_original_sample_coeff = (alpha_cumprod_t_prev ** 0.5 * current_beta_t) / beta_cumprod_t
+        # √(α_t)(1 - α̅_t-1) / (1 - α̅_t)
         current_sample_coeff = (current_alpha_t ** 0.5 * beta_cumprod_t_prev) / beta_cumprod_t
 
-        # Compute the predicted previous sample mean
+        # Compute the predicted previous sample mean using equation (7)
+        # μ_θ(x_t, t) = √(α̅_t-1)β_t / (1 - α̅_t) * x_0 + √(α_t)(1 - α̅_t-1) / (1 - α̅_t) * x_t
         pred_prev_sample = pred_original_sample_coeff * pred_original_sample + current_sample_coeff * latents
 
-        variance = 0
+        # Compute σ_t (sigma_t) for the equation: x_t-1 = μ_θ(x_t, t) + σ_t * z
+        # This is derived from equation (11) in the DDPM paper: p_θ(x_t-1 | x_t) = N(x_t-1; μ_θ(x_t, t), Σ_θ(x_t, t))
+        sigma_t = 0
         if t > 0:
             device = model_output.device
-            noise = torch.randn(model_output.shape, generator=self.generator, device=device, dtype=model_output.dtype)
-            variance = (self._get_variance(t) ** 0.5) * noise
 
-        # N(0, 1) -> N(mu, sigma^2)
-        # X = mu + sigma * Z where Z ~ N(0, 1)
-        pred_prev_sample = pred_prev_sample + variance
+            # Generate z ~ N(0, I)
+            z = torch.randn(model_output.shape, generator=self.generator, device=device, dtype=model_output.dtype)
+
+            # Compute σ_t (sigma_t), which is the square root of the variance (Σ_θ(x_t, t))
+                # σ_t = √(β_t * (1 - α̅_t-1) / (1 - α̅_t))
+                # Square root of variance to get σ_t (standard deviation)
+                # σ_t * z represents the random noise scaled by the standard deviation
+            sigma_t = (self._get_variance(t) ** 0.5) * z
+
+        # Compute the equation: x_t-1 = μ_θ(x_t, t) + σ_t * z
+        pred_prev_sample = pred_prev_sample + sigma_t
 
         return pred_prev_sample
 
