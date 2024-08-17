@@ -77,11 +77,62 @@ This formula means we take the joint probability of age and height and divide it
 <br><br>
 
 
-## Forward and Reverse Process
+## Forward and Reverse Process: An Overview of DDPM
+
+The Denoising Diffusion Probabilistic Model (DDPM) consists of two main processes: the forward process and the reverse process. These processes are described using probabilistic terms and formulas that involve key concepts such as distributions, mean, and variance.
+
+In the forward process, we gradually add noise to an image, while in the reverse process, we attempt to remove this noise. Both processes are modeled using probability distributions, specifically Gaussian (normal) distributions.
+
+Key concepts to understand:
+
+1. Probability distributions: These describe the likelihood of different outcomes using Probability Density Functions (PDFs). In DDPM, we use Gaussian (Normal) distributions to model the noise addition and removal processes.
+   - Mathematical concept: PDFs represent the relative likelihood of a random variable taking on a given value. For Gaussian distributions, this is a bell-shaped curve.
+   - Relation to DDPM: In the forward process, PDFs model how pixel values change as noise is added. In the reverse process, they model the likelihood of pixel values during denoising.
+   - Example: The distribution of pixel values in a noisy image.
+   - Importance: Allows us to quantify uncertainty and randomness in the diffusion process.
+   - Usage: In the forward process, q(x_t | x_0) is modeled as a Gaussian distribution. In the reverse process, p_θ(x_t-1 | x_t) is also modeled as a Gaussian.
+
+2. Mean (μ): The average or expected value of a distribution. In DDPM formulas, the mean often represents the "signal" part of an image.
+   - Mathematical concept: The center point of a distribution, representing the typical or average value.
+   - Relation to DDPM: In the forward process, the mean shifts towards zero as more noise is added. In the reverse process, the mean is estimated to recover the original image signal.
+   - Example: In q(x_t | x_0), √(α̅_t) * x_0 represents the mean.
+   - Importance: Helps maintain some of the original image information throughout the process.
+   - Usage: In the reverse process, the mean μ_θ(x_t, t) is predicted by the neural network to guide the denoising.
+
+3. Standard deviation (σ): The square root of the variance, measuring the spread of data around the mean. In DDPM, it represents the magnitude of noise.
+   - Mathematical concept: A measure of how spread out the values are from the mean. Larger values indicate more spread.
+   - Relation to DDPM: In the forward process, the standard deviation increases as more noise is added. In the reverse process, it decreases as noise is removed, guiding the image restoration.
+   - Example: In q(x_t | x_0), √(1 - α̅_t) represents the standard deviation.
+   - Importance: Directly quantifies the amount of noise added or removed at each step.
+   - Usage: Used in both forward and reverse processes to control the amount of noise added or removed.
+
+4. Variance (σ²): A measure of spread in a distribution. In DDPM, variance often represents the "noise" part of an image.
+   - Mathematical concept: The average squared deviation from the mean, indicating how far a set of numbers are spread out.
+   - Relation to DDPM: In the forward process, variance increases with each step, representing increasing noise. In the reverse process, reducing variance guides the denoising, helping to recover the original image structure.
+   - Example: In q(x_t | x_0), (1 - α̅_t) * I represents the variance.
+   - Importance: Controls the amount of noise added or removed at each step.
+   - Usage: In the reverse process, the variance Σ_θ(x_t, t) is often fixed or learned to control the stochasticity of the generation.
+
+5. Gaussian noise (ε): Random noise sampled from a standard normal distribution, used to add randomness to the process.
+   - Example: ε in the formula x_t = √(α̅_t) * x_0 + √(1 - α̅_t) * ε.
+   - Importance: Introduces controlled randomness, allowing for diverse image generation.
+   - Usage: Added to images in the forward process and predicted/removed in the reverse process.
+
+6. Noise schedule (β): A sequence of values that control how much noise is added at each step of the forward process.
+   - Example: β_t in α_t = 1 - β_t.
+   - Importance: Ensures a gradual and controlled transition from the original image to pure noise.
+   - Usage: Defines the forward process and influences the reverse process design.
+
+7. Neural network (p_θ): Used in the reverse process to predict and remove noise.
+   - Example: The model that learns to estimate ε given x_t.
+   - Importance: Enables the model to learn the complex mapping from noisy to clean images.
+   - Usage: In the reverse process, it predicts the noise to be removed at each step, guiding the image generation.
+
+Understanding these concepts will help in comprehending the detailed explanations of the forward and reverse processes that follow, including the specific formulas used to model noise addition and removal.
 
 ![forward_reverse_process](images/forward_reverse_process.png)
 
-The system will be modeled as a joint distribution with the inclusion of latent variables. Variable *Z* from the image above.
+The system is modeled as a joint distribution with the inclusion of latent variables, represented by variable *Z* in the image above. This latent space allows the model to capture complex relationships and features in the data.
 <br>
 
 ---
@@ -131,41 +182,69 @@ Where ε is sampled from a standard normal distribution N(0, I). This allows us 
 ---
 
 ### Reverse Process
-The problem with the reverse process is that we don't have a clear mathematical formula to be able to remove the noise from the image (reverse the process) at each time step *t*. Therefore, we train a neural network to do it for us. 
+The reverse process in DDPM aims to gradually remove noise from a noisy image x<sub>t</sub> to obtain a less noisy image x<sub>t-1</sub>. This process is modeled by a neural network, denoted as p<sub>θ</sub> (p theta), which learns to predict the distribution of the previous time step's image given the current noisy image.
 
-In the reverse process of DDPM, we aim to remove the noise from the noisy image x<sub>t</sub> to obtain a less noisy image x<sub>t-1</sub>. This process is modeled by a neural network, denoted as p<sub>θ</sub> (P theta), which learns to predict the distribution of the previous time step's image given the current noisy image.
+In the implementation for this project, the model is designed to predict the noise (ε<sub>θ</sub>) rather than directly predicting the mean and variance of the distribution. This approach aligns with the DDPM paper and allows for a more efficient computation. The reverse process is described by the following equations:
 
-Traditionally, the formula for this process is:
-
+**Equation (11) from the DDPM paper:**
 <pre>
 p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>) = N(x<sub>t-1</sub>; μ<sub>θ</sub>(x<sub>t</sub>, t), Σ<sub>θ</sub>(x<sub>t</sub>, t))
 </pre>
 
+Importance: Used to sample the denoised latent image x<sub>t-1</sub> by adding a small amount of random noise to the computed mean.
+
 Where:
 - p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>): "Transitioning from noisy image x<sub>t</sub> to less noisy image x<sub>t-1</sub>".
 - N: A normal distribution.
-- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean predicted by the neural network.
-- Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance predicted by the neural network.
+- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean of the distribution, representing the most likely value for x<sub>t-1</sub>.
+- Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance of the distribution, representing the uncertainty in the prediction of x<sub>t-1</sub>.
+<br><br>
 
-However, in many implementations of stable diffusion, including the one implemented for this project, the model is designed to predict the noise (ε<sub>θ</sub>) rather than the mean and variance directly. In this case, we use a different formula for the reverse process:
-
+**Equation (15) from the DDPM paper:**
 <pre>
-x<sub>t-1</sub> = 1/√α<sub>t</sub> * (x<sub>t</sub> - ((1 - α<sub>t</sub>)/√(1 - α̅<sub>t</sub>)) * ε<sub>θ</sub>(x<sub>t</sub>, t)) + σ<sub>t</sub> * z
+x<sub>0</sub> = (x<sub>t</sub> - √(1 - α̅<sub>t</sub>) * ε<sub>θ</sub>(x<sub>t</sub>, t)) / √(α̅<sub>t</sub>)
 </pre>
 
+Importance: Crucial for computing the predicted original sample (pred_original_sample). It allows the model to estimate the clean image from the noisy input and the predicted noise, which is essential for guiding the denoising process towards the desired output.
+
 Where:
-- x<sub>t-1</sub>: The less noisy image at the previous time step.
+- x<sub>0</sub>: The predicted original, noise-free image.
 - x<sub>t</sub>: The current noisy image.
-- α<sub>t</sub> and α̅<sub>t</sub>: Parameters from the forward process noise schedule.
-- ε<sub>θ</sub>(x<sub>t</sub>, t): The noise predicted by the neural network.
-- σ<sub>t</sub>: A small amount of noise added for stochasticity.
-- z: Random noise sampled from a standard normal distribution.
+- α̅<sub>t</sub>: The cumulative product of (1 - β<sub>t</sub>) up to time step t, representing how much of the original signal is preserved.
+- ε<sub>θ</sub>(x<sub>t</sub>, t): The noise predicted by the neural network for the current step.
+<br><br>
 
-This formula allows us to directly use the predicted noise ε<sub>θ</sub> to denoise the image, without needing to predict the mean and variance explicitly. It's derived from the properties of the forward process and the relationship between the added noise and the image at each step.
+**Equation (7) from the DDPM paper:**
+<pre>
+μ<sub>θ</sub>(x<sub>t</sub>, t) = (√(α̅<sub>t-1</sub>)β<sub>t</sub> / (1 - α̅<sub>t</sub>)) * x<sub>0</sub> + (√(α<sub>t</sub>)(1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>)) * x<sub>t</sub>
+</pre>
+Importance: Used to compute the predicted previous sample mean (pred_prev_sample). Determines how to combine the information from the current noisy image and the estimated clean image to produce the best guess for the less noisy image at the previous time step.
 
-The neural network p<sub>θ</sub> is trained to minimize the difference between the predicted and actual noise, effectively learning to denoise the image step by step. This reverse process allows us to start from pure noise x<sub>T</sub> and iteratively remove the noise to generate a coherent image x<sub>0</sub>.
+Where:
+- μ<sub>θ</sub>(x<sub>t</sub>, t): The mean of the distribution for x<sub>t-1</sub>, representing the best guess for the less noisy image.
+- α<sub>t</sub>: The noise schedule parameter at time step t, where α<sub>t</sub> = 1 - β<sub>t</sub>.
+- β<sub>t</sub>: The variance schedule parameter at time step t, controlling how much noise is added at each step.
+<br><br>
 
-This reverse process is also Markovian, meaning that the next state (x<sub>t-1</sub>) depends only on the current state (x<sub>t</sub>) and not on any of the previous states before x<sub>t</sub>. The Markov property simplifies the modeling of the reverse process, as it ensures that each step can be treated independently given the current state.
+In the code implementation, these equations are used in a specific order due to their interdependencies:
+
+1. First, we compute x<sub>0</sub> using equation (15) because our model predicts the noise ε<sub>θ</sub>(x<sub>t</sub>, t) rather than directly predicting the mean and variance. We need to estimate x<sub>0</sub> to proceed with the next steps.
+
+2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
+   This equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub> to estimate the mean of the less noisy image x<sub>t-1</sub>. We couldn't compute this without first estimating x<sub>0</sub>.
+
+3. Finally, we sample from the distribution described by equation (11) to get x<sub>t-1</sub>
+   In practice, this is done by adding a small amount of random noise to the computed mean from step 2. We couldn't perform this step without first computing the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
+
+<pre>
+x<sub>t-1</sub> = μ<sub>θ</sub>(x<sub>t</sub>, t) + σ<sub>t</sub> * z
+</pre>
+
+Where σ<sub>t</sub> is the standard deviation computed from the variance Σ<sub>θ</sub>(x<sub>t</sub>, t), and z is random noise sampled from a standard normal distribution.
+
+This approach allows us to efficiently compute the reverse process using the noise prediction from our model, without needing to explicitly predict the mean and variance of the distribution. It's derived from the properties of the forward process and the relationship between the added noise and the image at each step, as described in the DDPM paper.
+
+The reverse process remains Markovian, as the next state (x<sub>t-1</sub>) depends only on the current state (x<sub>t</sub>) and not on any previous states. This Markov property simplifies the modeling and allows each step to be treated independently given the current state.
 <br>
 
 ---
