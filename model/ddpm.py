@@ -72,7 +72,7 @@ class DDPMSampler:
         self.step_ratio = self.num_training_steps // self.num_inference_steps
         
         # Create an array of timesteps for inference, evenly spaced across the original training steps
-        timesteps = (np.arange(0, self.num_inference_steps) * step_ratio).round()[::-1].copy().astype(np.int64)
+        timesteps = (np.arange(0, self.num_inference_steps) * self.step_ratio).round()[::-1].copy().astype(np.int64)
 
         # Convert the numpy array to a PyTorch tensor
         self.timesteps = torch.from_numpy(timesteps)
