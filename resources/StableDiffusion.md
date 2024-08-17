@@ -224,18 +224,28 @@ Where:
 - μ<sub>θ</sub>(x<sub>t</sub>, t): The mean of the distribution for x<sub>t-1</sub>, representing the best guess for the less noisy image.
 - α<sub>t</sub>: The noise schedule parameter at time step t, where α<sub>t</sub> = 1 - β<sub>t</sub>.
 - β<sub>t</sub>: The variance schedule parameter at time step t, controlling how much noise is added at each step.
+- (√(α̅<sub>t-1</sub>)β<sub>t</sub> / (1 - α̅<sub>t</sub>)): The coefficient for x<sub>0</sub>, which determines how much weight is given to the predicted original image.
+- (√(α<sub>t</sub>)(1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>)): The coefficient for x<sub>t</sub>, which determines how much weight is given to the current noisy image.
 <br><br>
 
-In the code implementation, these equations are used in a specific order due to their interdependencies:
+In the code implementation, these equations are used in a specific order due to their interdependencies and computational requirements:
 
-1. First, we compute x<sub>0</sub> using equation (15) because our model predicts the noise ε<sub>θ</sub>(x<sub>t</sub>, t) rather than directly predicting the mean and variance. We need to estimate x<sub>0</sub> to proceed with the next steps.
+1. First, we compute x<sub>0</sub> using equation (15). This step is crucial because:
+   a) Our model predicts the noise ε<sub>θ</sub>(x<sub>t</sub>, t) rather than directly predicting the mean and variance.
+   b) We need to estimate x<sub>0</sub> to proceed with the next steps, as it's used in the calculation of the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
+   c) Without this step, we wouldn't have the pred_original_sample (x<sub>0</sub>) needed for subsequent calculations.
 
-2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
-   This equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub> to estimate the mean of the less noisy image x<sub>t-1</sub>. We couldn't compute this without first estimating x<sub>0</sub>.
+2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t). This order is necessary because:
+   a) The equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub>.
+   b) We couldn't compute this without first estimating x<sub>0</sub>, as it's a key component in the equation.
+   c) The coefficients pred_original_sample_coeff and current_sample_coeff are calculated using values from step 1.
 
-3. Finally, we sample from the distribution described by equation (11) to get x<sub>t-1</sub>
-   In practice, this is done by adding a small amount of random noise to the computed mean from step 2. We couldn't perform this step without first computing the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
+3. Finally, we sample from the distribution described by equation (11) to get x<sub>t-1</sub>. This step comes last because:
+   a) It requires the mean μ<sub>θ</sub>(x<sub>t</sub>, t) computed in step 2.
+   b) We need to add a small amount of random noise to the computed mean, which depends on the variance calculated from previous steps.
+   c) The variance calculation (if t > 0) uses the _get_variance method, which in turn depends on values computed in earlier steps.
 
+The equation used to sample from the distribution (derived from equation 11):
 <pre>
 x<sub>t-1</sub> = μ<sub>θ</sub>(x<sub>t</sub>, t) + σ<sub>t</sub> * z
 </pre>
