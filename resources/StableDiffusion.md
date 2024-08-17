@@ -188,6 +188,8 @@ In the implementation for this project, the model is designed to predict the noi
 
 ***Note again that: In DDPM, α<sub>t</sub> = 1 - β<sub>t</sub>***
 
+---
+
 **Equation (11) from the DDPM paper:**
 <pre>
 p<sub>θ</sub>(x<sub>t-1</sub> | x<sub>t</sub>) = N(x<sub>t-1</sub>; μ<sub>θ</sub>(x<sub>t</sub>, t), Σ<sub>θ</sub>(x<sub>t</sub>, t))
@@ -201,6 +203,8 @@ Where:
 - μ<sub>θ</sub>(x<sub>t</sub>, t): The mean of the distribution, representing the most likely value for x<sub>t-1</sub>.
 - Σ<sub>θ</sub>(x<sub>t</sub>, t): The variance of the distribution, representing the uncertainty in the prediction of x<sub>t-1</sub>.
 <br><br>
+
+---
 
 **Equation (15) from the DDPM paper:**
 <pre>
@@ -216,6 +220,8 @@ Where:
 - ε<sub>θ</sub>(x<sub>t</sub>, t): The noise predicted by the neural network for the current step.
 <br><br>
 
+---
+
 **Equation (7) from the DDPM paper:**
 <pre>
 μ<sub>θ</sub>(x<sub>t</sub>, t) = (√(α̅<sub>t-1</sub>)β<sub>t</sub> / (1 - α̅<sub>t</sub>)) * x<sub>0</sub> + (√(α<sub>t</sub>)(1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>)) * x<sub>t</sub>
@@ -228,7 +234,17 @@ Where:
 - β<sub>t</sub>: The variance schedule parameter at time step t, controlling how much noise is added at each step.
 - (√(α̅<sub>t-1</sub>)β<sub>t</sub> / (1 - α̅<sub>t</sub>)): The coefficient for x<sub>0</sub>, which determines how much weight is given to the predicted original image.
 - (√(α<sub>t</sub>)(1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>)): The coefficient for x<sub>t</sub>, which determines how much weight is given to the current noisy image.
+
+Additionally, equation (7) is used to compute the variance β̅<sub>t</sub> (beta bar t) for the reverse process:
+
+<pre>
+β̅<sub>t</sub> = (1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>) * β<sub>t</sub>
+</pre>
+
+This variance term is crucial for determining the amount of noise to add during the reverse process, ensuring that the denoising steps are consistent with the forward diffusion process. The variance β̅<sub>t</sub> helps maintain the balance between the information from the current noisy image and the predicted clean image, allowing for a smooth and controlled denoising process.
 <br><br>
+
+---
 
 In the code implementation, these equations are used in a specific order due to their interdependencies and computational requirements:
 
@@ -237,10 +253,12 @@ In the code implementation, these equations are used in a specific order due to 
    b) We need to estimate x<sub>0</sub> to proceed with the next steps, as it's used in the calculation of the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
    c) Without this step, we wouldn't have the pred_original_sample (x<sub>0</sub>) needed for subsequent calculations.
 
-2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t). This order is necessary because:
+2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t) and the variance β̅<sub>t</sub>. This order is necessary because:
    a) The equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub>.
    b) We couldn't compute this without first estimating x<sub>0</sub>, as it's a key component in the equation.
    c) The coefficients pred_original_sample_coeff and current_sample_coeff are calculated using values from step 1.
+   d) The variance β̅<sub>t</sub> is computed using the same parameters: β̅<sub>t</sub> = (1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>) * β<sub>t</sub>
+   e) This variance term is crucial for determining the amount of noise to add during the reverse process.
 
 3. Finally, we sample from the distribution described by equation (11) to get x<sub>t-1</sub>. This step comes last because:
    a) It requires the mean μ<sub>θ</sub>(x<sub>t</sub>, t) computed in step 2.
@@ -251,8 +269,7 @@ The equation used to sample from the distribution (derived from equation 11):
 <pre>
 x<sub>t-1</sub> = μ<sub>θ</sub>(x<sub>t</sub>, t) + σ<sub>t</sub> * z
 </pre>
-
-Where σ<sub>t</sub> is the standard deviation computed from the variance Σ<sub>θ</sub>(x<sub>t</sub>, t), and z is random noise sampled from a standard normal distribution.
+Where σ<sub>t</sub> (sigma_t) is the standard deviation computed from the variance Σ<sub>θ</sub>(x<sub>t</sub>, t), and z is random noise sampled from a standard normal distribution.
 
 This approach allows us to efficiently compute the reverse process using the noise prediction from our model, without needing to explicitly predict the mean and variance of the distribution. It's derived from the properties of the forward process and the relationship between the added noise and the image at each step, as described in the DDPM paper.
 

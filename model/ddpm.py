@@ -82,17 +82,32 @@ class DDPMSampler:
         return prev_t
     
     def _get_variance(self, timestep: int) -> torch.Tensor:
+        """
+        Computes β̄_t (beta bar t), which represents the variance in the reverse process.
+        
+        This variance is derived from equations 6 and 7 in the DDPM paper:
+        Eq. 6: q(x_t | x_{t-1}) = N(x_t; √(1 - β_t) * x_{t-1}, β_t * I)
+        Eq. 7: q(x_{t-1} | x_t, x_0) = N(x_{t-1}; μ̃_t(x_t, x_0), β̃_t * I)
+        
+        Where β̄_t is used to determine the variance of the Gaussian distribution
+        for the reverse diffusion process.
+        """
         prev_t = self._get_previous_timestep(timestep)
 
+        # ᾱ_t (alpha bar t)
         alpha_cumprod_t = self.alpha_cumprod[timestep]
+        # ᾱ_{t-1} (alpha bar t-1)
         alpha_cumprod_t_prev = self.alpha_cumprod[prev_t] if prev_t >= 0 else self.one
+        # β_t (beta t)
         current_beta_t = 1 - alpha_cumprod_t / alpha_cumprod_t_prev
         
-        # Compute using formula 6 and 7 from DDPM paper
-        variance = (1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t * current_beta_t)
-        variance = torch.clamp(variance, min=1e-20)
+        # Compute β̄_t (beta bar t) using the formula derived from equations 6 and 7
+        # β̄_t = (1 - ᾱ_{t-1}) / (1 - ᾱ_t * β_t)
+        beta_bar_t = (1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t * current_beta_t)
+        # Clamp to prevent numerical instability
+        beta_bar_t = torch.clamp(beta_bar_t, min=1e-20)
 
-        return variance
+        return beta_bar_t
     
     def step(self, timestep: int, latents: torch.Tensor, model_output: torch.Tensor) -> torch.FloatTensor:
         """
