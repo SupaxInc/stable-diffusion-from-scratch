@@ -246,24 +246,24 @@ This variance term is crucial for determining the amount of noise to add during 
 
 ---
 
-In the code implementation, these equations are used in a specific order due to their interdependencies and computational requirements:
+In the code implementation within `DDPM::step()`, these equations are used in a specific order due to their interdependencies and computational requirements:
 
 1. First, we compute x<sub>0</sub> using equation (15). This step is crucial because:
-   a) Our model predicts the noise ε<sub>θ</sub>(x<sub>t</sub>, t) rather than directly predicting the mean and variance.
-   b) We need to estimate x<sub>0</sub> to proceed with the next steps, as it's used in the calculation of the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
-   c) Without this step, we wouldn't have the pred_original_sample (x<sub>0</sub>) needed for subsequent calculations.
+   - a) Our model predicts the noise ε<sub>θ</sub>(x<sub>t</sub>, t) rather than directly predicting the mean and variance.
+   - b) We need to estimate x<sub>0</sub> to proceed with the next steps, as it's used in the calculation of the mean μ<sub>θ</sub>(x<sub>t</sub>, t).
+   - c) Without this step, we wouldn't have the pred_original_sample (x<sub>0</sub>) needed for subsequent calculations.
 
 2. Then, we use equation (7) to compute the mean μ<sub>θ</sub>(x<sub>t</sub>, t) and the variance β̅<sub>t</sub>. This order is necessary because:
-   a) The equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub>.
-   b) We couldn't compute this without first estimating x<sub>0</sub>, as it's a key component in the equation.
-   c) The coefficients pred_original_sample_coeff and current_sample_coeff are calculated using values from step 1.
-   d) The variance β̅<sub>t</sub> is computed using the same parameters: β̅<sub>t</sub> = (1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>) * β<sub>t</sub>
-   e) This variance term is crucial for determining the amount of noise to add during the reverse process.
+   - a) The equation requires the predicted x<sub>0</sub> from step 1 and the current noisy image x<sub>t</sub>.
+   - b) We couldn't compute this without first estimating x<sub>0</sub>, as it's a key component in the equation.
+   - c) The coefficients pred_original_sample_coeff and current_sample_coeff are calculated using values from step 1.
+   - d) The variance β̅<sub>t</sub> is computed using the same parameters: β̅<sub>t</sub> = (1 - α̅<sub>t-1</sub>) / (1 - α̅<sub>t</sub>) * - β<sub>t</sub>
+   - e) This variance term is crucial for determining the amount of noise to add during the reverse process.
 
 3. Finally, we sample from the distribution described by equation (11) to get x<sub>t-1</sub>. This step comes last because:
-   a) It requires the mean μ<sub>θ</sub>(x<sub>t</sub>, t) computed in step 2.
-   b) We need to add a small amount of random noise to the computed mean, which depends on the variance calculated from previous steps.
-   c) The variance calculation (if t > 0) uses the _get_variance method, which in turn depends on values computed in earlier steps.
+   - a) It requires the mean μ<sub>θ</sub>(x<sub>t</sub>, t) computed in step 2.
+   - b) We need to add a small amount of random noise to the computed mean, which depends on the variance calculated from previous steps.
+   - c) The variance calculation (if t > 0) uses the _get_variance method, which in turn depends on values computed in earlier steps.
 
 The equation used to sample from the distribution (derived from equation 11):
 <pre>

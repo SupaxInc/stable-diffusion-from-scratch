@@ -77,6 +77,43 @@ class DDPMSampler:
         # Convert the numpy array to a PyTorch tensor
         self.timesteps = torch.from_numpy(timesteps)
 
+    def set_strength(self, strength: float = 1.0):
+        """
+        Set the strength of the diffusion process by adjusting the starting point of the reverse process.
+        Essentially "tricking" the model that it has been denoised already at a certain point or not.
+        
+        Args:
+            strength (float): A value between 0 and 1 that determines how much of the original
+                              diffusion process to use. Default is 1.0 (full process).
+
+        This method calculates the starting step based on the given strength and adjusts
+        the timesteps to start from that point. A higher strength means starting closer to
+        the beginning of the process, resulting in more noise removal and less preservation of
+        the original image.
+
+        Example:
+            If we have 50 inference steps, 1000 training steps and set strength to 0.8:
+            start_step = 50 - int(50 * 0.8) = 50 - 40 = 10
+
+            Initially the steps had 50 total steps that went all the way down to 0.
+            self.timesteps before: [1000, 980, 960, ..., 60, 40, 20, 0]  (50 steps)
+
+            Now the process will start at step 10 out of 50, using 80% of the full process.
+            Skipping the first 10 steps [1000, 980, 960 ..., 820] and now starts at 800.
+            self.timesteps after:  [800, 780, 760, ..., 60, 40, 20, 0]  (40 steps)
+        """
+        # Calculate the starting step based on strength
+        start_step = self.num_inference_steps - int(self.num_inference_steps * strength)
+        
+        # Adjust timesteps to start from the calculated step
+        # This removes the first 'start_step' elements from self.timesteps
+        self.timesteps = self.timesteps[start_step:]
+        
+        self.start_step = start_step
+
+        print(f"Strength set to {strength}. Starting at step {start_step} out of {self.num_inference_steps}")
+        print(f"Using {len(self.timesteps)} timesteps for inference")
+
     def _get_previous_timestep(self, timestep: int) -> int:
         prev_t = timestep - self.step_ratio
         return prev_t
@@ -86,7 +123,6 @@ class DDPMSampler:
         Computes β̄_t (beta bar t), which represents the variance in the reverse process.
         
         This variance is derived from equations 6 and 7 in the DDPM paper:
-        Eq. 6: q(x_t | x_{t-1}) = N(x_t; √(1 - β_t) * x_{t-1}, β_t * I)
         Eq. 7: q(x_{t-1} | x_t, x_0) = N(x_{t-1}; μ̃_t(x_t, x_0), β̃_t * I)
         
         Where β̄_t is used to determine the variance of the Gaussian distribution
@@ -101,7 +137,7 @@ class DDPMSampler:
         # β_t (beta t)
         current_beta_t = 1 - alpha_cumprod_t / alpha_cumprod_t_prev
         
-        # Compute β̄_t (beta bar t) using the formula derived from equations 6 and 7
+        # Compute β̄_t (beta bar t) using the formula derived from equation (7)
         # β̄_t = (1 - ᾱ_{t-1}) / (1 - ᾱ_t * β_t)
         beta_bar_t = (1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t * current_beta_t)
         # Clamp to prevent numerical instability
@@ -191,7 +227,7 @@ class DDPMSampler:
     def add_noise(self, original_samples: torch.FloatTensor, timestep: torch.IntTensor) -> torch.FloatTensor:
         """
         Forward process of the DDPM sampler. Adds noise to the original samples (input images). x_0 -> x_t
-
+        
         Args:
             original_samples (torch.FloatTensor): The original, clean samples to which noise will be added  (Batch, Channels, Height, Width).
             timestep (torch.IntTensor): The current timestep in the diffusion process (Batch, ).
