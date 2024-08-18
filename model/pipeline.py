@@ -135,9 +135,11 @@ def generate(
             # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH), output of the VAE encoder
             latents = encoder(input_image_tensor, encoder_noise)
             
-            # Add noise to the latents based on the strength parameter
-            # A higher strength allows more deviation from the input image
+            # Set the strength which shifts the timesteps
+                # Higher strength = Start with more noise
+                # Lower strength = Start with less noise
             sampler.set_strength(strength=strength)
+            # Add noise to the latents based on new timesteps, less noise preverse more of the original image
             latents = sampler.add_noise(latents, sampler.timesteps[0])
 
             to_idle(encoder)
