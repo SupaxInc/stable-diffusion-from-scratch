@@ -163,15 +163,15 @@ class UNet_AttentionBlock(nn.Module):
         self.conv_input = nn.Conv2d(self.channels, self.channels, kernel_size=1, padding=0)
 
         # Self-attention block
-        self.layer_norm_1 = nn.LayerNorm(self.channels)
+        self.layernorm_1 = nn.LayerNorm(self.channels)
         self.self_attention = SelfAttention(n_heads, self.channels, in_proj_bias=False)
 
         # Cross-attention block
-        self.layer_norm_2 = nn.LayerNorm(self.channels)
+        self.layernorm_2 = nn.LayerNorm(self.channels)
         self.cross_attention = CrossAttention(n_heads, self.channels, context_dim, in_proj_bias=False)
 
         # Feed-forward network (FFN) block using GEGLU activation function (Gated Element-wise Linear Unit)
-        self.layer_norm_3 = nn.LayerNorm(self.channels)
+        self.layernorm_3 = nn.LayerNorm(self.channels)
         # 1) Expand dimensionality by factor of 4 and split into two halves:
         #    - One half for linear transformation
         #    - One half for gating mechanism
@@ -215,21 +215,21 @@ class UNet_AttentionBlock(nn.Module):
         # Normalization + Self Attention with skip connection
         residue_short = x # Short residual: Helps in gradient flow and preserves local information
 
-        x = self.layer_norm_1(x)
+        x = self.layernorm_1(x)
         self.self_attention(x)
         x += residue_short  # Skip connection: Allows the model to bypass self-attention if necessary
 
         # # Normalization + Cross Attention with skip connection
         residue_short = x # Another short residual: Enables the model to selectively use text context
 
-        x = self.layer_norm_2(x)
+        x = self.layernorm_2(x)
         self.cross_attention(x, context)
         x += residue_short  # Skip connection: Model can choose to ignore text context if not relevant
 
         # Normalization + Feed-forward network using GEGLU with skip connection
         residue_short = x # Final short residual: Allows for complex non-linear transformations while preserving input
 
-        x = self.layer_norm_3(x)
+        x = self.layernorm_3(x)
         x, gate = self.linear_geglu_1(x).chunk(2, dim=-1)
         x = x * self.activation(gate)
         x = self.linear_geglu_2(x)

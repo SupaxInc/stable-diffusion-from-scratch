@@ -12,10 +12,10 @@ class VAE_ResidualBlock(nn.Module):
         super().__init__()
 
         self.groupnorm_1 = nn.GroupNorm(32, in_channels)
-        self.conv1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv_1 = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
         self.groupnorm_2 = nn.GroupNorm(32, out_channels)
-        self.conv2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
+        self.conv_2 = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
         if in_channels == out_channels:
             # If the number of input channels is equal to the number of output channels, use an identity layer for the residual connection.
@@ -44,10 +44,10 @@ class VAE_ResidualBlock(nn.Module):
 
         x = self.groupnorm_1(x)
         x = F.silu(x)
-        x = self.conv1(x)
+        x = self.conv_1(x)
         x = self.groupnorm_2(x)
         x = F.silu(x)
-        x = self.conv2(x)
+        x = self.conv_2(x)
 
         # Identity layer/Conv2d on the residue helps ensure the input (residue) and output (x) tensors have the same shape
             # Allows them to be added together

@@ -70,13 +70,13 @@ class CLIPLayer(nn.Module):
         super().__init__()
 
         # Layer normalization before self-attention for stable learning
-        self.layer_norm_1 = nn.LayerNorm(embed_dim)
+        self.layernorm_1 = nn.LayerNorm(embed_dim)
         
         # Self-attention mechanism
         self.attention = SelfAttention(n_heads, embed_dim)
         
         # Layer normalization before feed-forward network
-        self.layer_norm_2 = nn.LayerNorm(embed_dim)
+        self.layernorm_2 = nn.LayerNorm(embed_dim)
         
         # Feed-forward network:
         # First layer expands dimensionality with a scale of 4 to allow the network to learn richer representations
@@ -104,7 +104,7 @@ class CLIPLayer(nn.Module):
         residue = x  # (Batch, Seq_Len, Dim)
 
         # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
-        x = self.layer_norm_1(x)
+        x = self.layernorm_1(x)
 
         # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
         x = self.attention(x, causal_mask=True)
@@ -116,7 +116,7 @@ class CLIPLayer(nn.Module):
         residue = x  # (Batch, Seq_Len, Dim)
 
         # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, Dim)
-        x = self.layer_norm_2(x)
+        x = self.layernorm_2(x)
 
         # (Batch, Seq_Len, Dim) -> (Batch, Seq_Len, 4*Dim)
         x = self.linear_1(x)
@@ -145,7 +145,7 @@ class CLIP(nn.Module):
             CLIPLayer(768) for _ in range(12)
         ])
 
-        self.layer_norm = nn.LayerNorm(768)
+        self.layernorm = nn.LayerNorm(768)
     
     def forward(self, tokens: torch.LongTensor) -> torch.FloatTensor:
         """
@@ -166,7 +166,7 @@ class CLIP(nn.Module):
         for layer in self.layers:
             state = layer(state)
         
-        output = self.layer_norm(state)
+        output = self.layernorm(state)
 
         # Return the encoded representation
         # (Batch, Seq_Len, Dim)
