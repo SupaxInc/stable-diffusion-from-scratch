@@ -78,12 +78,12 @@ class UNet_ResidualBlock(nn.Module):
             time_embedding_features: The features of the timestep when it has been converted to a feature vector (scale factor of 4).
         """
         super().__init__()
-        self.group_norm_feature = nn.GroupNorm(32, in_channels)
+        self.groupnorm_feature = nn.GroupNorm(32, in_channels)
         self.activation = nn.SiLU()
         self.conv_feature = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
         self.linear_time = nn.Linear(time_embedding_features, out_channels)
 
-        self.group_norm_merged = nn.GroupNorm(32, out_channels)
+        self.groupnorm_merged = nn.GroupNorm(32, out_channels)
         self.conv_merged = nn.Conv2d(out_channels, out_channels, kernel_size=3, padding=1)
 
         if in_channels == out_channels:
@@ -109,7 +109,7 @@ class UNet_ResidualBlock(nn.Module):
 
         # Process the latent representation
         # (Batch, In_Channels, Height, Width) -> (Batch, In_Channels, Height, Width)
-        z = self.group_norm_feature(z)
+        z = self.groupnorm_feature(z)
         z = self.activation(z)
         # (Batch, In_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
         z = self.conv_feature(z)
@@ -127,7 +127,7 @@ class UNet_ResidualBlock(nn.Module):
         
         # Further process the merged representation
         # (Batch, Out_Channels, Height, Width) -> (Batch, Out_Channels, Height, Width)
-        merged = self.group_norm_merged(merged)
+        merged = self.groupnorm_merged(merged)
         merged = self.activation(merged)
         merged = self.conv_merged(merged)
     
@@ -159,7 +159,7 @@ class UNet_AttentionBlock(nn.Module):
         self.channels = n_heads * embed_dim
 
         # Initial normalization and projection
-        self.group_norm = nn.GroupNorm(32, self.channels, eps=1e-6)
+        self.groupnorm = nn.GroupNorm(32, self.channels, eps=1e-6)
         self.conv_input = nn.Conv2d(self.channels, self.channels, kernel_size=1, padding=0)
 
         # Self-attention block
@@ -201,7 +201,7 @@ class UNet_AttentionBlock(nn.Module):
         # This helps in maintaining the overall structure and low-level features of the image
         residue_long = x  # Will be added back at the very end of the block
 
-        x = self.group_norm(x)
+        x = self.groupnorm(x)
         x = self.conv_input(x)
 
         b, c, h, w = x.shape
@@ -284,7 +284,7 @@ class UNet_OutputLayer(nn.Module):
         for the diffusion process.
         """
         super().__init__()
-        self.group_norm = nn.GroupNorm(32, in_channels)
+        self.groupnorm = nn.GroupNorm(32, in_channels)
         self.activation = nn.SiLU()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size=3, padding=1)
 
@@ -297,7 +297,7 @@ class UNet_OutputLayer(nn.Module):
             torch.Tensor: Predicted noise (Batch, 4, Height/8, Width/8)
         """
         # (Batch, 320, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
-        x = self.group_norm(x)
+        x = self.groupnorm(x)
 
         # (Batch, 320, Height/8, Width/8) -> (Batch, 320, Height/8, Width/8)
         x = self.activation(x)
