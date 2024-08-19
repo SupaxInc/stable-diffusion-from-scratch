@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from attention import SelfAttention
+from model.attention import SelfAttention
 
 """
 IMPORTANT: Only created the text encoder of the CLIP encoder. The image encoder will be handled differently.

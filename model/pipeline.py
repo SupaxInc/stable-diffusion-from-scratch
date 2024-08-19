@@ -2,7 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import numpy as np
-from ddpm import DDPMSampler
+from model.ddpm import DDPMSampler
+from tqdm import tqdm
 
 # Stable Diffusion can only accept 512x512
 WIDTH = 512

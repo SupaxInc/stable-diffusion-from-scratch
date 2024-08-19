@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from decoder import VAE_AttentionBlock, VAE_ResidualBlock
+from model.decoder import VAE_AttentionBlock, VAE_ResidualBlock
 
 """
     Inheriting from Sequential sequences other modules in the order that they are added.

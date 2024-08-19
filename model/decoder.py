@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from attention import SelfAttention
+from model.attention import SelfAttention
 
 """
     Inheriting nn.Module provides the framework to define custom models
