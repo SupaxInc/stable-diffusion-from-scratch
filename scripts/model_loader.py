@@ -20,7 +20,7 @@ def preload_models_from_standard_weights(ckpt_path, device):
     diffusion.load_state_dict(state_dict["diffusion"], strict=True)
 
     clip = CLIP().to(device)
-    clip.load_state_dict(state_dict=["clip"], strict=True)
+    clip.load_state_dict(state_dict["clip"], strict=True)
 
     return {
         "encoder": encoder,

@@ -142,7 +142,7 @@ class CLIP(nn.Module):
 
         # 12 layers of self-attention and feed-forward, used for processing and encoding the tokens (Nx from formula)
         self.layers = nn.ModuleList([
-            CLIPLayer(768) for _ in range(12)
+            CLIPLayer(12, 768) for _ in range(12)
         ])
 
         self.layernorm = nn.LayerNorm(768)
