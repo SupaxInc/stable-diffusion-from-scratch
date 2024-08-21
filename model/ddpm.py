@@ -41,13 +41,11 @@ class DDPMSampler:
 
         self.generator = generator
         self.num_training_steps = num_training_steps
-        self.num_inference_steps = num_inference_steps
-        self.step_ratio = self.num_training_steps // self.num_inference_steps
         
         # Create an array of timesteps in reverse order
         # This is used to iterate through the diffusion process from T to 0
             # tensor([999, 998, 997, ..., 2, 1, 0]) if T is 1000 
-        self.timesteps = torch.from_numpy(np.arange(0, num_training_steps)[::-1].copy())
+        self.timesteps = torch.from_numpy(np.arange(0, self.num_training_steps)[::-1].copy())
         
     def set_inference_steps(self, num_inference_steps: int = 50) -> torch.Tensor:
         """
@@ -115,7 +113,7 @@ class DDPMSampler:
         print(f"Using {len(self.timesteps)} timesteps for inference")
 
     def _get_previous_timestep(self, timestep: int) -> int:
-        prev_t = timestep - self.step_ratio
+        prev_t = timestep - self.num_training_steps // self.num_inference_steps
         return prev_t
     
     def _get_variance(self, timestep: int) -> torch.Tensor:

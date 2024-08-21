@@ -118,7 +118,7 @@ def generate(
             input_image_tensor = input_image.resize((WIDTH, HEIGHT))
             input_image_tensor = np.array(input_image_tensor)
             # (HEIGHT, WIDTH, 3)
-            input_image_tensor = torch.tensor(input_image_tensor, dtype=torch.float32)
+            input_image_tensor = torch.tensor(input_image_tensor, dtype=torch.float32, device=device)
             # Rescale pixel values from [0, 255] to [-1, 1] for the VAE which will be used as an input to U-Net
             input_image_tensor = rescale(input_image_tensor, (0, 255), (-1, 1))
 

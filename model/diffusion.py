@@ -187,7 +187,7 @@ class UNet_AttentionBlock(nn.Module):
 
     def forward(self, x: torch.Tensor, context: torch.Tensor) -> torch.Tensor:
         """
-        Forward pass of the attention block imilar to a Transformer architecture.
+        Forward pass of the attention block similar to a Transformer architecture.
 
         Args:
             x: Latent of shape (Batch, Features, Height, Width).
