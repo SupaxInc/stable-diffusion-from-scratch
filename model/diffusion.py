@@ -216,14 +216,14 @@ class UNet_AttentionBlock(nn.Module):
         residue_short = x # Short residual: Helps in gradient flow and preserves local information
 
         x = self.layernorm_1(x)
-        self.self_attention(x)
+        x = self.self_attention(x)
         x += residue_short  # Skip connection: Allows the model to bypass self-attention if necessary
 
         # # Normalization + Cross Attention with skip connection
         residue_short = x # Another short residual: Enables the model to selectively use text context
 
         x = self.layernorm_2(x)
-        self.cross_attention(x, context)
+        x = self.cross_attention(x, context)
         x += residue_short  # Skip connection: Model can choose to ignore text context if not relevant
 
         # Normalization + Feed-forward network using GEGLU with skip connection
