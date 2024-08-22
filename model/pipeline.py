@@ -4,6 +4,7 @@ import torch.nn.functional as F
 import numpy as np
 from model.ddpm import DDPMSampler
 from tqdm import tqdm
+from torchvision.utils import save_image
 
 # Stable Diffusion can only accept 512x512
 WIDTH = 512
@@ -95,6 +96,9 @@ def generate(
             tokens = torch.tensor(tokens, dtype=torch.long, device=device)
             # (1, 77) -> (1, 77, 768),(Batch, Seq_Len, Dim)
             context = clip(tokens)
+
+        print(f"CLIP encoding shape: {context.shape}")
+        print(f"CLIP encoding stats: mean={context.mean().item():.4f}, std={context.std().item():.4f}")
         
         # Can offload CLIP model to CPU or whatever device when not being used
         to_idle(clip)
@@ -150,6 +154,9 @@ def generate(
             # Start with random noise in the latent space: N(0, I)
             # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
             latents = torch.randn(latents_shape, generator=generator, device=device)
+
+        print(f"Initial latents shape: {latents.shape}")
+        print(f"Initial latents mean: {latents.mean().item():.4f}, std: {latents.std().item():.4f}")
         
         diffusion = models["diffusion"]
         diffusion.to(device)
@@ -165,7 +172,7 @@ def generate(
             model_input = latents
 
             if do_cfg:
-                # Duplicate the input for conditional and unconditional outputs
+                # Duplicate the input so there are two latents for conditional and unconditional outputs
                 # (1, 4, LATENTS_HEIGHT, LATENTS_WIDTH) -> (2, 4, LATENTS_HEIGHT, LATENTS_WIDTH)
                 model_input = model_input.repeat(2, 1, 1, 1)
             
@@ -179,9 +186,15 @@ def generate(
             
             # Update latents by removing the predicted noise
             latents = sampler.step(timestep, latents, model_output)
+            if i % 10 == 0:
+                save_image(latents, f"latents_step_{i}.png", normalize=True)
+            print(f"Step {i}, timestep: {timestep}")
+            print(f"UNet input stats: mean={model_input.mean().item():.4f}, std={model_input.std().item():.4f}")
+            print(f"UNet output stats: mean={model_output.mean().item():.4f}, std={model_output.std().item():.4f}")
+            print(f"Updated latents stats: mean={latents.mean().item():.4f}, std={latents.std().item():.4f}")
         
         to_idle(diffusion)
-
+        print(f"Final latents stats: mean={latents.mean().item():.4f}, std={latents.std().item():.4f}")
         decoder = models["decoder"]
         decoder.to(device)
         # Decode the latents to get the final image
@@ -194,6 +207,8 @@ def generate(
         # (1, 3, HEIGHT, WIDTH) -> (1, HEIGHT, WIDTH, 3)
         images = images.permute(0, 2, 3, 1)
         images = images.to("cpu", torch.uint8).numpy() # Convert to numpy array so it can be visualized later
+
+        print(f"Decoded image stats: min={images.min().item():.4f}, max={images.max().item():.4f}, mean={images.mean().item():.4f}")
 
         # Return the first (and only) image in the batch
         return images[0]

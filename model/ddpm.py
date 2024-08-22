@@ -137,7 +137,7 @@ class DDPMSampler:
         
         # Compute β̄_t (beta bar t) using the formula derived from equation (7)
         # β̄_t = (1 - ᾱ_{t-1}) / (1 - ᾱ_t * β_t)
-        beta_bar_t = (1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t * current_beta_t)
+        beta_bar_t = (1 - alpha_cumprod_t_prev) / (1 - alpha_cumprod_t) * current_beta_t
         # Clamp to prevent numerical instability
         beta_bar_t = torch.clamp(beta_bar_t, min=1e-20)
 
@@ -206,10 +206,8 @@ class DDPMSampler:
         # From the sampling algorithm, no need to generate random noise if we are already back to original x_0
             # This means we have finished denoising already
         if t > 0:
-            device = model_output.device
-
             # Generate random noise: z ~ N(0, I)
-            z = torch.randn(model_output.shape, generator=self.generator, device=device, dtype=model_output.dtype)
+            z = torch.randn(model_output.shape, generator=self.generator, device=model_output.device, dtype=model_output.dtype)
 
             # Compute σ_t (sigma_t), which is the square root of the variance (Σ_θ(x_t, t))
                 # σ_t = √(β_t * (1 - α̅_t-1) / (1 - α̅_t))
@@ -263,6 +261,6 @@ class DDPMSampler:
 
         # Begin sampling from the distribution (generating random noise), according from equation (4, forward process) of the DDPM paper
             # Similar to formula to transform normal variable to desired distribution: X = mean + stdev * z
-        noisy_samples = (sqrt_alpha_cumprod * original_samples) + (sqrt_one_minus_alpha_cumprod * noise)
+        noisy_samples = sqrt_alpha_cumprod * original_samples + sqrt_one_minus_alpha_cumprod * noise
 
         return noisy_samples

@@ -31,7 +31,7 @@ class CLIPEmbedding(nn.Module):
         # Convert each token to a dense vector representation
         self.token_embedding = nn.Embedding(vocab_size, embed_dim)
         # Encode the position of each token in the sequence.
-        self.position_embedding = nn.Parameter(torch.zeros(max_position_embeddings, embed_dim))
+        self.position_embedding = nn.Parameter(torch.zeros((max_position_embeddings, embed_dim)))
 
     def forward(self, tokens: torch.LongTensor) -> torch.FloatTensor:
         """
