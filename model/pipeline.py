@@ -186,8 +186,7 @@ def generate(
             
             # Update latents by removing the predicted noise
             latents = sampler.step(timestep, latents, model_output)
-            if i % 10 == 0:
-                save_image(latents, f"latents_step_{i}.png", normalize=True)
+            
             print(f"Step {i}, timestep: {timestep}")
             print(f"UNet input stats: mean={model_input.mean().item():.4f}, std={model_input.std().item():.4f}")
             print(f"UNet output stats: mean={model_output.mean().item():.4f}, std={model_output.std().item():.4f}")
