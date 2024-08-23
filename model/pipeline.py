@@ -4,7 +4,6 @@ import torch.nn.functional as F
 import numpy as np
 from model.ddpm import DDPMSampler
 from tqdm import tqdm
-from torchvision.utils import save_image
 
 # Stable Diffusion can only accept 512x512
 WIDTH = 512
