@@ -4,6 +4,8 @@ understand what is happening under the hood when I implement it myself for futur
 <br><br>
 
 # Results
+**NOTE: Currently, only text-to-image and image-to-image works. Inpainting is a work in progress.**
+
 ## Text-to-Image Result
 **Prompt**: "calico cat, loafing, large watermelon bed, cartoon"
 
@@ -15,6 +17,34 @@ understand what is happening under the hood when I implement it myself for futur
 **Prompt**: "Calico cat wearing a tuxedo, cartoon"
 
 ![cat-tuxedo](examples/cat_tuxedo.png)
+<br><br>
+
+# Installation Guide
+1. Clone this repository:
+   ```
+   git clone https://github.com/SupaxInc/stable-diffusion-from-scratch.git
+   cd stable-diffusion-from-scratch
+   ```
+
+2. Download the v1-5-pruned-emaonly checkpoint:
+   - Visit [RunwayML's Stable Diffusion v1.5 model page](https://huggingface.co/runwayml/stable-diffusion-v1-5)
+   - Download the `v1-5-pruned-emaonly.ckpt` file
+   - Create a folder named `saved_checkpoints` in the project root
+   - Move the downloaded checkpoint into the `saved_checkpoints` folder
+
+3. Set up the environment and run the demo notebook:
+   ```
+   pip install -r requirements.txt
+   ```
+   - Open the `demo.ipynb` notebook in your browser
+   - Follow the instructions in the notebook to generate images
+
+4. Customize the demo notebook:
+   - Modify the prompts, input images, or parameters in the notebook cells
+   - Experiment with different settings to create your own unique examples
+   - Save your results and share your creations!
+
+
 <br><br>
 
 # Citations
