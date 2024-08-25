@@ -68,6 +68,10 @@ class VAE_AttentionBlock(nn.Module):
         """
 
         residue = x
+
+        # (Batch, Features, Height, Width) -> (Batch, Features, Height, Width)
+        x = self.groupnorm(x)
+
         b, c, h, w = x.shape
 
         # Do the self attention between all the pixels of the image
