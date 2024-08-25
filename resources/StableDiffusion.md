@@ -1,9 +1,9 @@
 # Table of Contents
 
 1. [How Stable Diffusion Works](#how-stable-diffusion-works)
-   1. [What is it?](#What-is-a-generative-model?)
-      - [Marginalizing a variable](#marginalizing-a-variable)
-      - [Evaluating conditional probability](#Evaluating-conditional-probablity)
+   1. [What is a Generative Model?](#what-is-a-generative-model)
+      - [Marginalizing a Variable](#marginalizing-a-variable)
+      - [Evaluating Conditional Probability](#evaluating-conditional-probability)
    2. [Forward and Reverse Process](#forward-and-reverse-process)
       - [Forward Process](#forward-process)
       - [Reverse Process](#reverse-process)
@@ -24,6 +24,8 @@
 6. [Layers](#layers)
    1. [Layer Normalization](#layer-normalization)
    2. [Group Normalization](#group-normalization)
+7. [Self Attention](#self-attention)
+8. [Cross Attention](#cross-attention)
 
 # How Stable Diffusion Works
 ## What is a generative model?

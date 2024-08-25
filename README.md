@@ -36,13 +36,18 @@ understand what is happening under the hood when I implement it myself for futur
    ```
    pip install -r requirements.txt
    ```
-   - Open the `demo.ipynb` notebook in your browser
-   - Follow the instructions in the notebook to generate images
+   - Open the `demo.ipynb` notebook
+   - Follow the cells in the notebook to generate images
 
-4. Customize the demo notebook:
+4. Learn about Stable Diffusion:
+   - Open the `resources/StableDiffusion.md` file
+   - Read through the document to understand how the Stable Diffusion model works
+
+5. Customize the demo notebook:
    - Modify the prompts, input images, or parameters in the notebook cells
    - Experiment with different settings to create your own unique examples
    - Save your results and share your creations!
+
 
 
 <br><br>
