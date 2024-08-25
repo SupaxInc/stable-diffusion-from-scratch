@@ -1,6 +1,7 @@
 # Creating a Stable Diffusion Model from Scratch
 Learning how to create stable diffusion from the ground up beginning with Variational Autoencoders, CLIP, Denoising UNet, DDPM scheduler, etc. The inspiration here was so I could
 understand what is happening under the hood when I implement it myself for future projects.
+<br><br>
 
 # Results
 ## Text-to-Image Result
@@ -8,6 +9,13 @@ understand what is happening under the hood when I implement it myself for futur
 
 ![cat](examples/cat.png)
 
+## Image-to-Image Result
+**Input Image:** Using the text-to-image result above.
+**Noise Strength**: 0.6
+**Prompt**: "Calico cat wearing a tuxedo, cartoon"
+
+![cat-tuxedo](examples/cat_tuxedo.png)
+<br><br>
 
 # Citations
 I'd like to thank Umar Jamil youtube channel for the amazing break-downs and guides on Transformers and Diffusion models. A lot of the content here was inspired from his videos and all I've done
