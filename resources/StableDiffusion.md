@@ -65,11 +65,24 @@ f<sub>Height</sub>(h) = ∫<sub>-∞</sub><sup>∞</sup> f<sub>Age, Height</sub>
 By marginalizing one of the variables, we can understand the distribution of the other variable independently, while still accounting for their joint relationship. In simpler terms, this means we can find out how common one variable is without considering the other variable. For example, we can determine the most common ages without worrying about heights, or the most common heights without worrying about ages.
 
 **Real-World Example**: Imagine you have a table of data with ages and heights of children. If you want to know the overall distribution of ages without considering height, you would look at the marginal distribution of age. This tells you how common each age is, regardless of height. Similarly, the marginal distribution of height tells you how common each height is, regardless of age.
-<br>
+
+**Similarity to Diffusion Models**: In diffusion models, marginalizing plays a crucial role in understanding the noise distribution at different stages of the process. Let's break it down:
+
+1. Multiple Timesteps: Just as we had age and height in our previous example, in diffusion models, we have multiple timesteps, each representing a different level of noise added to the image.
+
+2. Focusing on One Timestep: When we want to understand the noise at a specific timestep, we "marginalize" over all other timesteps. This is similar to how we found the distribution of heights regardless of age.
+
+3. Noise Distribution: By marginalizing, we can understand the distribution of noise at a particular timestep without considering the noise at other timesteps. This is analogous to understanding the distribution of heights without worrying about ages.
+
+4. Practical Application: This concept is used in the reverse process of diffusion models. When the model predicts and removes noise at a specific timestep, it's essentially working with the marginalized distribution of noise for that timestep.
+
+5. Step-by-Step Denoising: Just as we could analyze the height distribution for different age groups, in diffusion models, we can analyze and work with the noise distribution at each timestep separately. This allows for a step-by-step denoising process.
+
+By understanding marginalization in this context, we can see how diffusion models break down the complex process of image generation into manageable steps, each dealing with a specific "slice" of the overall noise distribution.
 
 ---
 
-### Evaluating conditional probablity
+### Evaluating conditional probability
 
 To evaluate the probability of one variable given another, we use **conditional probability**. Conditional probability tells us the probability of one variable given that we know the value of another variable. For example, to find the probability of a certain height given a specific age, we use the formula:
 
@@ -80,6 +93,20 @@ f<sub>Height|Age</sub>(h|a) = f<sub>Age, Height</sub>(a, h) / f<sub>Age</sub>(a)
 This formula means we take the joint probability of age and height and divide it by the marginal probability of age. In simpler terms, this allows us to determine the probability of a certain height given a specific age. For example, if we know a person is 130 cm tall, we can use this formula to find out the probability of different ages for a person of that height. This helps us understand the relationship between age and height more clearly.
 
 **Real-World Example**: If you want to know the probability of a child being 130 cm tall given that they are 10 years old, you would use the joint distribution of age and height and divide it by the marginal distribution of age. This gives you the conditional probability of height given age.
+
+**Similarity to Diffusion Models**: In diffusion models, evaluating conditional probability plays a crucial role in the reverse process, similar to our age-height example. Here's how it works:
+
+1. Conditional Probability in Diffusion: Just as we calculated the probability of a certain height given a specific age, in diffusion models, we calculate the probability of a less noisy image given a more noisy one. This is represented by the formula p(x_{t-1} | x_t), where x_t is the current noisy image and x_{t-1} is the less noisy image we're trying to predict.
+
+2. Step-by-Step Denoising: Similar to how we might predict height for different ages, the diffusion model predicts less noisy images for each noise level. It starts with a very noisy image and gradually reduces the noise, step by step.
+
+3. Using Known Information: Just as we used known age to predict height, the diffusion model uses the current noisy image (x_t) to predict the less noisy image (x_{t-1}). It's like saying, "Given this noisy image, what's the most likely less noisy version?"
+
+4. Iterative Process: The model applies this conditional probability repeatedly, each time reducing the noise a little bit. It's like predicting height for progressively younger ages, getting closer to the "original" height (or in this case, the original image).
+
+5. Neural Network's Role: A neural network learns to estimate this conditional probability. It's trained to understand the relationship between noisy and less noisy images, much like how we might use data to understand the relationship between age and height.
+
+By using conditional probability in this way, diffusion models can generate high-quality images by gradually refining noisy inputs, similar to how we might deduce someone's likely height by knowing their age and understanding the age-height relationship.
 <br><br>
 
 
