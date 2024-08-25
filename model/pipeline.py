@@ -85,6 +85,9 @@ def generate(
             # (1, 77) -> (1, 77, 768), (Batch, Seq_Len, Dim)
             uncond_context = clip(uncond_tokens)
 
+            print(f"Conditional CLIP embedding stats: mean={cond_context.mean().item():.4f}, std={cond_context.std().item():.4f}")
+            print(f"Unconditional CLIP embedding stats: mean={uncond_context.mean().item():.4f}, std={uncond_context.std().item():.4f}")
+
             # Concatenate the two outputs so it's prepared to be used as an input to U-Net
             # (1, 77, 768) + (1, 77, 768) = (2, 77, 768), (Batch, Seq_Len, Dim)
             context = torch.cat([cond_context, uncond_context])
@@ -182,6 +185,8 @@ def generate(
                 output_cond, output_uncond = model_output.chunk(2)
                 # Apply classifier-free guidance: z_guided = z_uncond + cfg_scale * (z_cond - z_uncond)
                 model_output = output_uncond + cfg_scale * (output_cond - output_uncond)
+            
+            print(f"CFG output stats: mean={model_output.mean().item():.4f}, std={model_output.std().item():.4f}")
             
             # Update latents by removing the predicted noise
             latents = sampler.step(timestep, latents, model_output)
