@@ -46,6 +46,8 @@ Instead of evaluating each variable independently (tossing a coin for each varia
 ***Why is this important with an image dataset?*** Well this is actually what's happening for an image, we create a very complex distribution where each pixel is a CRV and each of these pixels are joined in one big joint distribution graph. 
 <br>
 
+---
+
 ### Marginalizing a variable
 
 To further analyze the relationship between age and height, we can marginalize one of the variables. Marginalizing a variable means integrating out that variable to obtain the marginal distribution of the remaining variable. For example, to find the marginal distribution of age, we integrate the joint probability density function over all possible values of height:
@@ -64,6 +66,8 @@ By marginalizing one of the variables, we can understand the distribution of the
 
 **Real-World Example**: Imagine you have a table of data with ages and heights of children. If you want to know the overall distribution of ages without considering height, you would look at the marginal distribution of age. This tells you how common each age is, regardless of height. Similarly, the marginal distribution of height tells you how common each height is, regardless of age.
 <br>
+
+---
 
 ### Evaluating conditional probablity
 
