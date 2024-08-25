@@ -10,8 +10,8 @@ understand what is happening under the hood when I implement it myself for futur
 ![cat](examples/cat.png)
 
 ## Image-to-Image Result
-**Input Image:** Using the text-to-image result above.
-**Noise Strength**: 0.6
+**Input Image:** Using the text-to-image result above.<br>
+**Noise Strength**: 0.6<br>
 **Prompt**: "Calico cat wearing a tuxedo, cartoon"
 
 ![cat-tuxedo](examples/cat_tuxedo.png)
